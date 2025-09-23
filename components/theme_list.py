@@ -1,13 +1,13 @@
 from customtkinter import *
 import os
 import subprocess
-import sys
+import threading
 
 THEMES_PATH = os.path.join(os.getcwd(), 'themes')
 
 class ThemeList:
     def __init__(self, parent, console):
-        self.console = console 
+        self.console = console
         self.frame = CTkFrame(parent)
         self.frame.pack(fill="both", expand=True, padx=10, pady=10)
         
@@ -65,7 +65,7 @@ class ThemeList:
         theme_frame = CTkFrame(self.scrollable_frame)
         theme_frame.pack(fill="x", padx=5, pady=2)
         
-        display_name = theme_name.replace(".reg", "")
+        display_name = os.path.splitext(theme_name)[0]
         name_label = CTkLabel(theme_frame, text=display_name, anchor="w")
         name_label.pack(side="left", padx=10, pady=5, fill="x", expand=True)
         
@@ -101,29 +101,29 @@ class ThemeList:
 
     def apply_theme(self, theme_name):
         theme_path = os.path.join(THEMES_PATH, theme_name)
-        self.console.system(f"Applying theme: {theme_name}")
+        display_name = os.path.splitext(theme_name)[0]
 
-        try:
-            if sys.platform == "linux":
+        self.console.system(f"Applying theme: {display_name}...")
+
+        def run_theme():
+            try:
                 command = ['wine', 'regedit', theme_path]
-                self.console.info("Using 'wine regedit' for Linux.")
-
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            self.console.success(f"Successfully applied theme: {theme_name}")
-            self.console.debug(f"Command output: {result.stdout}")
-
-        except subprocess.CalledProcessError as e:
-            self.console.error(f"Failed to apply theme {theme_name}: {e.stderr}")
-        except FileNotFoundError:
-            if sys.platform == "linux":
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                self.console.success(f"Successfully applied theme: {display_name}")
+            except subprocess.CalledProcessError as e:
+                self.console.error(f"Failed to apply theme {display_name}: {e.stderr}")
+            except FileNotFoundError:
                 self.console.error("'wine' command not found. Please ensure Wine is installed and in your PATH.")
-        except Exception as e:
-            self.console.error(f"Unexpected error applying theme: {str(e)}")
+            except Exception as e:
+                self.console.error(f"Unexpected error applying theme: {str(e)}")
+        
+        threading.Thread(target=run_theme, daemon=True).start()
+
 
     def delete_theme(self, theme_name):
         theme_path = os.path.join(THEMES_PATH, theme_name)
