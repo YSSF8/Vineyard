@@ -42,6 +42,7 @@ theme_list = ThemeList(theme_list_frame, console)
 header_init.add_button("Revert", command=lambda: run_revert_command(console))
 header_init.add_button("Open Themes Path", command=lambda: open_themes_path(console))
 header_init.add_button("Refresh", command=lambda: theme_list.refresh_themes())
+header_init.add_search(theme_list.filter_themes)
 
 console.system("Vineyard Theme Manager started successfully")
 

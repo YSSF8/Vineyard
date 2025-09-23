@@ -26,7 +26,7 @@ class ThemeList:
             os.makedirs(THEMES_PATH)
             self.console.info(f"Created themes directory at: {THEMES_PATH}")
 
-        themes = [f for f in os.listdir(THEMES_PATH) if f.endswith('.reg') and f != 'revert.reg']
+        themes = sorted([f for f in os.listdir(THEMES_PATH) if f.endswith('.reg') and f != 'revert.reg'], key=lambda x: os.path.splitext(x)[0].lower())
         
         if not themes:
             no_themes_label = CTkLabel(self.scrollable_frame, text="No themes found. Please add a .reg file to the themes directory to see it here.", font=CTkFont(size=14))
@@ -121,7 +121,7 @@ class ThemeList:
                 self.console.error("'wine' command not found. Please ensure Wine is installed and in your PATH.")
             except Exception as e:
                 self.console.error(f"Unexpected error applying theme: {str(e)}")
-        
+
         threading.Thread(target=run_theme, daemon=True).start()
 
 
@@ -155,3 +155,19 @@ class ThemeList:
         self.theme_buttons.clear()
         self.load_themes()
         self.console.success("Theme list refreshed successfully")
+    
+    def filter_themes(self, query):
+        query = query.lower()
+    
+        visible_themes = []
+        for theme_name, widgets in self.theme_buttons.items():
+            display_name = os.path.splitext(theme_name)[0].lower()
+            if query in display_name:
+                visible_themes.append((display_name, widgets))
+            else:
+                widgets['frame'].pack_forget()
+
+        visible_themes.sort(key=lambda x: x[0])
+
+        for _, widgets in visible_themes:
+            widgets['frame'].pack(fill="x", padx=5, pady=2)
