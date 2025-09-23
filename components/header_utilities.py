@@ -1,5 +1,4 @@
 import os
-from .messagebox import MessageBox
 
 THEMES_PATH = os.path.join(os.getcwd(), 'themes')
 
@@ -8,10 +7,8 @@ def run_revert_command():
 
     try:
         os.system(f'wine regedit {revert_path}')
-        MessageBox("Success", "Revert command executed successfully.")
     except Exception as e:
         print(f"Error executing revert command: {e}")
-        MessageBox("Error", f"Failed to execute revert command: {e}")
 
 def open_themes_path():
     if not os.path.exists('themes'):
