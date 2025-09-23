@@ -1,6 +1,6 @@
 from customtkinter import *
 from components.header import Header
-from components.header_utilities import open_themes_path
+from components.header_utilities import *
 
 root = CTk()
 
@@ -12,7 +12,7 @@ header.pack(fill="x", side="top")
 
 header_init = Header(header)
 
-header_init.add_button("Revert")
+header_init.add_button("Revert", command=run_revert_command)
 header_init.add_button("Open Themes Path", command=open_themes_path)
 
 root.mainloop()
