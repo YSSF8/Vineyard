@@ -3,6 +3,7 @@ from components.header import Header
 from components.header_utilities import *
 from components.theme_list import ThemeList
 from components.console import Console
+from theme_maker import ThemeMaker
 
 set_appearance_mode("dark")
 set_default_color_theme("blue")
@@ -48,6 +49,7 @@ theme_list = ThemeList(theme_list_frame, console)
 header_init.add_button("Revert", command=lambda: run_revert_command(console))
 header_init.add_button("Open Themes Path", command=lambda: open_themes_path(console))
 header_init.add_button("Refresh", command=lambda: theme_list.refresh_themes())
+header_init.add_button("Theme Maker", command=lambda: ThemeMaker())
 header_init.add_search(theme_list.filter_themes)
 
 console.system("Vineyard Theme Manager started successfully")
