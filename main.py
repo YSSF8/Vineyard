@@ -46,12 +46,38 @@ console_frame.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
 console = Console(console_frame)
 theme_list = ThemeList(theme_list_frame, console)
 
+theme_maker = ThemeMaker()
+
+def on_theme_maker_close():
+    update_theme_maker_button_state()
+
+def open_theme_maker():
+    theme_maker.set_on_close_callback(on_theme_maker_close)
+    theme_maker.open()
+    update_theme_maker_button_state()
+
+def update_theme_maker_button_state():
+    if theme_maker.is_open():
+        theme_maker_button.configure(state="disabled")
+    else:
+        theme_maker_button.configure(state="normal")
+
+def check_theme_maker_status():
+    if theme_maker.is_open():
+        root.after(1000, check_theme_maker_status)
+    else:
+        update_theme_maker_button_state()
+
 header_init.add_button("Revert", command=lambda: run_revert_command(console))
 header_init.add_button("Open Themes Path", command=lambda: open_themes_path(console))
 header_init.add_button("Refresh", command=lambda: theme_list.refresh_themes())
-header_init.add_button("Theme Maker", command=lambda: ThemeMaker())
+theme_maker_button = header_init.add_button("Theme Maker", command=open_theme_maker)
 header_init.add_search(theme_list.filter_themes)
 
+update_theme_maker_button_state()
+
 console.system("Vineyard Theme Manager started successfully")
+
+root.after(1000, check_theme_maker_status)
 
 root.mainloop()
