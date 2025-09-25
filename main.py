@@ -22,19 +22,25 @@ except Exception:
         h = root.winfo_screenheight()
         root.geometry(f"{w}x{h}+0+0")
 
+root.grid_rowconfigure(1, weight=1)
+root.grid_columnconfigure(0, weight=1)
+
 header = CTkFrame(root, height=50, corner_radius=0)
-header.pack(fill="x", side="top")
+header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
+
+main_content = CTkFrame(root)
+main_content.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+main_content.grid_rowconfigure(0, weight=3)
+main_content.grid_rowconfigure(1, weight=1)
+main_content.grid_columnconfigure(0, weight=1)
 
 header_init = Header(header)
 
-main_content = CTkFrame(root)
-main_content.pack(fill="both", expand=True, padx=10, pady=10)
-
 theme_list_frame = CTkFrame(main_content)
-theme_list_frame.pack(fill="both", expand=True, pady=(0, 5))
+theme_list_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
 
-console_frame = CTkFrame(main_content, height=150)
-console_frame.pack(fill="x", expand=False, pady=(5, 0))
+console_frame = CTkFrame(main_content)
+console_frame.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
 
 console = Console(console_frame)
 theme_list = ThemeList(theme_list_frame, console)

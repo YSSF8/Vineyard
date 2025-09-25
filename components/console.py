@@ -4,12 +4,13 @@ from datetime import datetime
 import re
 
 class Console(CTkFrame):
-    def __init__(self, parent, height=200):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.pack(fill="both", expand=True, padx=10, pady=10)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.pack(fill="both", expand=True, padx=5, pady=5)
         
-        self.height = height
-        self.max_lines = 1000
+        self.max_lines = 500
         self.current_lines = 0
         
         self.colors = {
@@ -25,19 +26,20 @@ class Console(CTkFrame):
         self.setup_ui()
     
     def setup_ui(self):
-        header_frame = CTkFrame(self)
-        header_frame.pack(fill="x", padx=5, pady=(5, 0))
+        header_frame = CTkFrame(self, height=30)
+        header_frame.pack(fill="x", padx=2, pady=(2, 0))
+        header_frame.pack_propagate(False)
         
-        CTkLabel(header_frame, text="Console", font=CTkFont(size=20, weight="bold")).pack(side="left", padx=10, pady=5)
+        CTkLabel(header_frame, text="Console", font=CTkFont(size=14, weight="bold")).pack(side="left", padx=8, pady=4)
         
         button_frame = CTkFrame(header_frame, fg_color="transparent")
-        button_frame.pack(side="right", padx=5, pady=5)
+        button_frame.pack(side="right", padx=2, pady=2)
         
-        CTkButton(button_frame, text="Clear", width=80, command=self.clear_console).pack(side="left", padx=5)
-        CTkButton(button_frame, text="Copy", width=80, command=self.copy_to_clipboard).pack(side="left", padx=5)
+        CTkButton(button_frame, text="Clear", width=60, height=20, font=CTkFont(size=10), command=self.clear_console).pack(side="left", padx=2)
+        CTkButton(button_frame, text="Copy", width=60, height=20, font=CTkFont(size=10), command=self.copy_to_clipboard).pack(side="left", padx=2)
         
         console_frame = CTkFrame(self)
-        console_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        console_frame.pack(fill="both", expand=True, padx=2, pady=2)
         
         self.text_widget = tk.Text(
             console_frame,
@@ -46,10 +48,11 @@ class Console(CTkFrame):
             fg='#ffffff',
             insertbackground='white',
             selectbackground='#3d3d3d',
-            font=('Consolas', 10),
-            padx=10,
-            pady=10,
-            state=tk.DISABLED
+            font=('Consolas', 9),
+            padx=8,
+            pady=6,
+            state=tk.DISABLED,
+            height=6
         )
 
         scrollbar = CTkScrollbar(console_frame, command=self.text_widget.yview)
@@ -68,7 +71,7 @@ class Console(CTkFrame):
         
         self.text_widget.tag_configure('timestamp', foreground='#6c757d')
         
-        self.text_widget.tag_configure('bold', font=('Consolas', 10, 'bold'))
+        self.text_widget.tag_configure('bold', font=('Consolas', 9, 'bold'))
         
         self.text_widget.config(state=tk.DISABLED)
     

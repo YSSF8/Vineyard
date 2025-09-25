@@ -15,7 +15,7 @@ class ThemeList:
         self.title_label = CTkLabel(self.frame, text="Available Themes", font=CTkFont(size=20, weight="bold"))
         self.title_label.pack(pady=(0, 10))
         
-        self.scrollable_frame = CTkScrollableFrame(self.frame, height=400)
+        self.scrollable_frame = CTkScrollableFrame(self.frame)
         self.scrollable_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
         self.theme_buttons = {}
@@ -43,36 +43,13 @@ class ThemeList:
         theme_frame = CTkFrame(self.scrollable_frame)
         theme_frame.pack(fill="x", padx=5, pady=2)
         
-        name_label = CTkLabel(theme_frame, text=theme_name, anchor="w")
-        name_label.pack(side="left", padx=10, pady=5, fill="x", expand=True)
-        
-        apply_btn = CTkButton(
-            theme_frame, 
-            text="Apply", 
-            width=60,
-            command=lambda t=theme_name: self.apply_theme(t)
-        )
-        apply_btn.pack(side="right", padx=5, pady=5)
-        
-        delete_btn = CTkButton(
-            theme_frame, 
-            text="Delete", 
-            width=60,
-            fg_color="#d9534f",
-            hover_color="#c9302c",
-            command=lambda t=theme_name: self.delete_theme(t)
-        )
-    def create_theme_button(self, theme_name):
-        theme_frame = CTkFrame(self.scrollable_frame)
-        theme_frame.pack(fill="x", padx=5, pady=2)
-        
         display_name = os.path.splitext(theme_name)[0]
         name_label = CTkLabel(theme_frame, text=display_name, anchor="w")
         name_label.pack(side="left", padx=10, pady=5, fill="x", expand=True)
         
         apply_btn = CTkButton(
-            theme_frame, 
-            text="Apply", 
+            theme_frame,
+            text="Apply",
             width=60,
             command=lambda t=theme_name: self.apply_theme(t)
         )
@@ -87,12 +64,6 @@ class ThemeList:
             command=lambda t=theme_name: self.delete_theme(t)
         )
         delete_btn.pack(side="right", padx=5, pady=5)
-        
-        self.theme_buttons[theme_name] = {
-            'frame': theme_frame,
-            'apply_btn': apply_btn,
-            'delete_btn': delete_btn
-        }
         
         self.theme_buttons[theme_name] = {
             'frame': theme_frame,
@@ -189,8 +160,6 @@ class ThemeList:
             allowed_keys = json.load(f)
 
         reg_content = self.read_reg_file(theme_path)
-        theme_dict = self.convert_reg_to_dict(reg_content)
-
         theme_dict = self.convert_reg_to_dict(reg_content)
 
         if not self.validate_theme(theme_dict, allowed_keys):
