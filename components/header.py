@@ -7,7 +7,7 @@ class Header(CTkFrame):
 
     def add_button(self, text, command=None):
         button = CTkButton(self, text=text, command=command)
-        button.pack(pady=5, padx=5, side="right", anchor="n")
+        button.pack(pady=5, padx=2, side="right", anchor="n")
         return button
 
     def add_search(self, callback):
