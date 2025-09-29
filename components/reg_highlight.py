@@ -299,3 +299,10 @@ class RegTextWidget(ttk.Frame):
     
     def configure_text(self, **kwargs):
         self.text_widget.configure(**kwargs)
+    
+    def validate_content(self):
+        return self.highlighter.validate_syntax()
+
+    def has_errors(self):
+        is_valid, errors, warnings = self.validate_content()
+        return len(errors) > 0
