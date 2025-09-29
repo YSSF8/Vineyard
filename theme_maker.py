@@ -75,7 +75,8 @@ class ThemeMaker:
     def create_color_pickers(self, parent):
         scrollable_frame = CTkScrollableFrame(parent)
         scrollable_frame.pack(fill="both", expand=True, padx=0, pady=0)
-        scrollable_frame.grid_columnconfigure(1, weight=1)
+
+        scrollable_frame.grid_columnconfigure(0, weight=1)
 
         try:
             with open('keys.json', 'r', encoding='utf-8') as f:
@@ -87,19 +88,20 @@ class ThemeMaker:
         for key, value in keys.items():
             if value is None:
                 value = "#000000"
-            
+
             self._original_colors[key] = value
 
             color_frame = CTkFrame(scrollable_frame)
             color_frame.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
+            
             color_frame.grid_columnconfigure(1, weight=1)
 
             label = CTkLabel(color_frame, text=key, width=200, anchor="w")
             label.grid(row=0, column=0, padx=(10, 5), pady=5, sticky="w")
 
-            color_entry = CTkEntry(color_frame, width=100)
+            color_entry = CTkEntry(color_frame)
             color_entry.insert(0, value)
-            color_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+            color_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
             self._color_entries[key] = color_entry
 
             color_preview = CTkLabel(color_frame, text="", width=30, height=20, 
