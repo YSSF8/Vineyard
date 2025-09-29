@@ -43,3 +43,22 @@ class RegSyntaxHighlighter:
         )
 
         self.configure_tags()
+    
+    def configure_tags(self):
+        tags_config = {
+            'version': {'foreground': self.COLORS['keywords'], 'font': ('Consolas', 10, 'bold')},
+            'header': {'foreground': self.COLORS['keywords'], 'font': ('Consolas', 10, 'bold')},
+            'comment': {'foreground': self.COLORS['comments'], 'font': ('Consolas', 10, 'italic')},
+            'string_key': {'foreground': self.COLORS['strings']},
+            'string_value': {'foreground': self.COLORS['strings']},
+            'rgb_values': {'foreground': self.COLORS['numbers']},
+            'hex_value': {'foreground': self.COLORS['hex_values']},
+            'operator': {'foreground': self.COLORS['operators']},
+            'brackets': {'foreground': self.COLORS['brackets']},
+            'line_highlight': {'background': self.COLORS['line_highlight']},
+            'error': {'foreground': self.COLORS['error'], 'underline': True, 'underlinefg': self.COLORS['error']},
+            'warning': {'foreground': self.COLORS['warning'], 'underline': True, 'underlinefg': self.COLORS['warning']},
+        }
+
+        for tag_name, config in tags_config.items():
+            self.text_widget.tag_configure(tag_name, **config)
