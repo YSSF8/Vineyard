@@ -254,3 +254,29 @@ class RegTextWidget(ttk.Frame):
         super().__init__(parent, **kwargs)
         self.highlighter = None
         self.create_widgets()
+    
+    def create_widgets(self):
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        v_scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL)
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        h_scrollbar = ttk.Scrollbar(self, orient=tk.HORIZONTAL)
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        self.text_widget = tk.Text(
+            self,
+            yscrollcommand=v_scrollbar.set,
+            xscrollcommand=h_scrollbar.set,
+            undo=True,
+            maxundo=-1,
+            wrap=tk.WORD
+        )
+
+        self.text_widget.grid(row=0, column=0, sticky="nsew")
+
+        v_scrollbar.config(command=self.text_widget.yview)
+        h_scrollbar.config(command=self.text_widget.xview)
+
+        self.highlighter = RegSyntaxHighlighter(self.text_widget)
