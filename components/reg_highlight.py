@@ -62,3 +62,8 @@ class RegSyntaxHighlighter:
 
         for tag_name, config in tags_config.items():
             self.text_widget.tag_configure(tag_name, **config)
+    
+    def bind_events(self):
+        self.text_widget.bind('<KeyRelease>', lambda e: self.highlight())
+        self.text_widget.bind('<ButtonRelease>', lambda e: self.highlight())
+        self.text_widget.bind('<<Modified>>', self.on_modified)
