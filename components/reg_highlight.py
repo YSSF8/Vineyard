@@ -143,3 +143,21 @@ class RegSyntaxHighlighter:
                 self.text_widget.tag_add('string_value', f"{line_num}.{value_start_abs}", f"{line_num}.{value_end_abs}")
                 inner_value = value_text.strip('" ')
                 self.highlight_value_content(inner_value, line_num, value_start_abs + 1)
+    
+    def highlight_value_content(self, value, line_num, start_offset):
+        rgb_pattern = r'\b\d{1,3}\s+\d{1,3}\s+\d{1,3}\b'
+        for match in re.finditer(rgb_pattern, value):
+            rgb_start = start_offset + match.start()
+            rgb_end = start_offset + match.end()
+            self.text_widget.tag_add('rgb_values', f"{line_num}.{rgb_start}", f"{line_num}.{rgb_end}")
+
+        hex_pattern = r'#[0-9a-fA-F]{6}'
+        for match in re.finditer(hex_pattern, value):
+            hex_start = start_offset + match.start()
+            hex_end = start_offset + match.end()
+            self.text_widget.tag_add('hex_value', f"{line_num}.{hex_start}", f"{line_num}.{hex_end}")
+
+    def clear_highlighting(self):
+        for tag in self.text_widget.tag_names():
+            if tag != 'sel':
+                self.text_widget.tag_remove(tag, '1.0', tk.END)
