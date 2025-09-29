@@ -26,3 +26,20 @@ class RegSyntaxHighlighter:
         self.text_widget = text_widget
         self.setup_theme()
         self.bind_events()
+    
+    def setup_theme(self):
+        self.text_widget.configure(
+            bg=self.COLORS['background'],
+            fg=self.COLORS['foreground'],
+            insertbackground=self.COLORS['caret'],
+            selectbackground=self.COLORS['selection'],
+            selectforeground=self.COLORS['foreground'],
+            inactiveselectbackground=self.COLORS['selection'],
+            font=('Consolas', 10),
+            relief='flat',
+            padx=10,
+            pady=10,
+            wrap=tk.WORD
+        )
+
+        self.configure_tags()
