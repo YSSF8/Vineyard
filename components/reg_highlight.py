@@ -247,37 +247,118 @@ class RegSyntaxHighlighter:
                                f"{line_num}.{start_pos}", 
                                f"{line_num}.{end_pos}")
 
+
+class LineNumbers(tk.Canvas):
+    def __init__(self, parent, text_widget, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.text_widget = text_widget
+        self.configure(
+            width=60,
+            bg='#1e1e1e',
+            highlightthickness=0,
+            relief='flat'
+        )
+        
+        self.font = ('Consolas', 10)
+        
+        self.text_widget.bind('<KeyPress>', self._on_change)
+        self.text_widget.bind('<KeyRelease>', self._on_change)
+        self.text_widget.bind('<Button-1>', self._on_change)
+        self.text_widget.bind('<MouseWheel>', self._on_change)
+        self.text_widget.bind('<Configure>', self._on_change)
+        self.text_widget.bind('<<Modified>>', self._on_change)
+        
+    def _on_change(self, event=None):
+        self.update_line_numbers()
+        
+    def update_line_numbers(self):
+        self.delete("all")
+        
+        index = self.text_widget.index('@0,0')
+        first_line = int(index.split('.')[0])
+        
+        total_lines = int(self.text_widget.index('end-1c').split('.')[0])
+        
+        line_height = self.text_widget.dlineinfo('1.0')
+        if line_height:
+            line_height = line_height[3]
+            visible_lines = int(self.text_widget.winfo_height() / line_height) + 2
+        else:
+            visible_lines = 30
+            
+        last_line = min(first_line + visible_lines, total_lines)
+        
+        for line_num in range(first_line, last_line + 1):
+            y_position = self._get_line_y_position(line_num)
+            if y_position is not None:
+                self.create_text(
+                    50, y_position,
+                    text=str(line_num),
+                    anchor="ne",
+                    fill="#858585",
+                    font=self.font,
+                    tags="line_number"
+                )
+    
+    def _get_line_y_position(self, line_num):
+        bbox = self.text_widget.bbox(f"{line_num}.0")
+        if bbox:
+            return bbox[1]
+        return None
+
+
 class RegTextWidget(ttk.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
         self.highlighter = None
+        self.line_numbers = None
         self.create_widgets()
     
     def create_widgets(self):
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
+        self.line_number_frame = ttk.Frame(self)
+        self.line_number_frame.grid(row=0, column=0, sticky="ns")
+        
         v_scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL)
-        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        v_scrollbar.grid(row=0, column=2, sticky="ns")
 
         h_scrollbar = ttk.Scrollbar(self, orient=tk.HORIZONTAL)
-        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        h_scrollbar.grid(row=1, column=1, sticky="ew")
 
         self.text_widget = tk.Text(
             self,
-            yscrollcommand=v_scrollbar.set,
+            yscrollcommand=self._on_text_scroll,
             xscrollcommand=h_scrollbar.set,
             undo=True,
             maxundo=-1,
             wrap=tk.WORD
         )
+        self.text_widget.grid(row=0, column=1, sticky="nsew")
 
-        self.text_widget.grid(row=0, column=0, sticky="nsew")
+        self.line_numbers = LineNumbers(self.line_number_frame, self.text_widget)
+        self.line_numbers.pack(side="left", fill="y")
 
         v_scrollbar.config(command=self.text_widget.yview)
         h_scrollbar.config(command=self.text_widget.xview)
 
         self.highlighter = RegSyntaxHighlighter(self.text_widget)
+        
+        self.text_widget.bind('<<Modified>>', self._on_modified)
+    
+    def _on_text_scroll(self, first, last):
+        v_scrollbar = self.grid_slaves(row=0, column=2)
+        if v_scrollbar:
+            v_scrollbar[0].set(first, last)
+        
+        self.line_numbers.update_line_numbers()
+    
+    def _on_modified(self, event=None):
+        if self.text_widget.edit_modified():
+            self.highlighter.highlight()
+            self.line_numbers.update_line_numbers()
+            self.text_widget.edit_modified(False)
     
     def insert(self, index, text, tags=None):
         if tags:
@@ -286,16 +367,19 @@ class RegTextWidget(ttk.Frame):
             self.text_widget.insert(index, text)
 
         self.highlighter.highlight()
+        self.line_numbers.update_line_numbers()
     
     def delete(self, start, end=None):
         self.text_widget.delete(start, end)
         self.highlighter.highlight()
+        self.line_numbers.update_line_numbers()
     
     def get(self, start, end=None):
         return self.text_widget.get(start, end)
 
     def clear(self):
         self.text_widget.delete('1.0', tk.END)
+        self.line_numbers.update_line_numbers()
     
     def configure_text(self, **kwargs):
         self.text_widget.configure(**kwargs)
