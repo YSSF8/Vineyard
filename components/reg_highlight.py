@@ -187,13 +187,11 @@ class RegSyntaxHighlighter:
                     self.mark_error(line_num, 0, len(line))
             elif line.startswith('[') and line.endswith(']'):
                 has_header = True
-
                 if not re.match(r'^\[[^\]]+\]$', line):
                     errors.append(f"Line {line_num}: Invalid registry header format")
                     self.mark_error(line_num, 0, len(line))
             elif '=' in line and not line.startswith(';'):
                 has_entries = True
-
                 if not self.validate_key_value(line, line_num):
                     errors.append(f"Line {line_num}: Invalid key-value format")
             elif not line.startswith(';'):
@@ -280,3 +278,24 @@ class RegTextWidget(ttk.Frame):
         h_scrollbar.config(command=self.text_widget.xview)
 
         self.highlighter = RegSyntaxHighlighter(self.text_widget)
+    
+    def insert(self, index, text, tags=None):
+        if tags:
+            self.text_widget.insert(index, text, tags)
+        else:
+            self.text_widget.insert(index, text)
+
+        self.highlighter.highlight()
+    
+    def delete(self, start, end=None):
+        self.text_widget.delete(start, end)
+        self.highlighter.highlight()
+    
+    def get(self, start, end=None):
+        return self.text_widget.get(start, end)
+
+    def clear(self):
+        self.text_widget.delete('1.0', tk.END)
+    
+    def configure_text(self, **kwargs):
+        self.text_widget.configure(**kwargs)
