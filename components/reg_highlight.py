@@ -238,3 +238,13 @@ class RegSyntaxHighlighter:
         except Exception:
             self.mark_error(line_num, 0, len(line))
             return False
+    
+    def mark_error(self, line_num, start_pos, end_pos):
+        self.text_widget.tag_add('error', 
+                               f"{line_num}.{start_pos}", 
+                               f"{line_num}.{end_pos}")
+
+    def mark_warning(self, line_num, start_pos, end_pos):
+        self.text_widget.tag_add('warning', 
+                               f"{line_num}.{start_pos}", 
+                               f"{line_num}.{end_pos}")
