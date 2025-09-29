@@ -67,3 +67,8 @@ class RegSyntaxHighlighter:
         self.text_widget.bind('<KeyRelease>', lambda e: self.highlight())
         self.text_widget.bind('<ButtonRelease>', lambda e: self.highlight())
         self.text_widget.bind('<<Modified>>', self.on_modified)
+    
+    def on_modified(self, event=None):
+        if self.text_widget.edit_modified():
+            self.highlight()
+            self.text_widget.edit_modified(False)
