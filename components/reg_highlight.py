@@ -77,8 +77,6 @@ class RegSyntaxHighlighter:
         for tag in self.text_widget.tag_names():
             if tag not in ['sel', 'error', 'warning']:
                 self.text_widget.tag_remove(tag, '1.0', tk.END)
-            else:
-                self.text_widget.tag_remove(tag, '1.0', tk.END)
 
         text = self.text_widget.get('1.0', tk.END)
         lines = text.split('\n')
