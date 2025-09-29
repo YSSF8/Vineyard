@@ -95,14 +95,11 @@ class RegSyntaxHighlighter:
 
         if line.startswith('Windows Registry Editor Version'):
             self.text_widget.tag_add('version', line_start, line_end)
-
         elif line.strip().startswith(';'):
             self.text_widget.tag_add('comment', line_start, line_end)
-
         elif line.startswith('[') and line.endswith(']'):
             self.text_widget.tag_add('header', line_start, line_end)
             self.highlight_brackets(line, line_num)
-
         elif '=' in line:
             self.highlight_key_value(line, line_num)
     
@@ -164,3 +161,80 @@ class RegSyntaxHighlighter:
     
     def refresh(self):
         self.highlight()
+    
+    def validate_syntax(self):
+        text = self.text_widget.get('1.0', tk.END)
+        lines = text.split('\n')
+        errors = []
+        warnings = []
+
+        self.text_widget.tag_remove('error', '1.0', tk.END)
+        self.text_widget.tag_remove('warning', '1.0', tk.END)
+
+        has_version = False
+        has_header = False
+        has_entries = False
+
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+
+            if line.startswith('Windows Registry Editor Version'):
+                has_version = True
+                if not re.match(r'^Windows Registry Editor Version \d+\.\d+$', line):
+                    errors.append(f"Line {line_num}: Invalid version format")
+                    self.mark_error(line_num, 0, len(line))
+            elif line.startswith('[') and line.endswith(']'):
+                has_header = True
+
+                if not re.match(r'^\[[^\]]+\]$', line):
+                    errors.append(f"Line {line_num}: Invalid registry header format")
+                    self.mark_error(line_num, 0, len(line))
+            elif '=' in line and not line.startswith(';'):
+                has_entries = True
+
+                if not self.validate_key_value(line, line_num):
+                    errors.append(f"Line {line_num}: Invalid key-value format")
+            elif not line.startswith(';'):
+                errors.append(f"Line {line_num}: Invalid syntax")
+                self.mark_error(line_num, 0, len(line))
+
+        if not has_version:
+            warnings.append("Missing 'Windows Registry Editor Version' header")
+
+        if not has_header:
+            warnings.append("Missing registry header (e.g., [HKEY_CURRENT_USER\\Control Panel\\Colors])")
+
+        if not has_entries:
+            warnings.append("No color entries found")
+
+        return len(errors) == 0, errors, warnings
+
+    def validate_key_value(self, line, line_num):
+        try:
+            key_part, value_part = line.split('=', 1)
+            key = key_part.strip()
+            value = value_part.strip()
+
+            if not (key.startswith('"') and key.endswith('"')):
+                self.mark_error(line_num, 0, len(key_part))
+                return False
+
+            if not (value.startswith('"') and value.endswith('"')):
+                self.mark_error(line_num, len(key_part) + 1, len(line))
+                return False
+
+            inner_value = value.strip('"')
+
+            if re.match(r'^\d{1,3}\s+\d{1,3}\s+\d{1,3}$', inner_value):
+                rgb_values = inner_value.split()
+                for val in rgb_values:
+                    if not (0 <= int(val) <= 255):
+                        self.mark_warning(line_num, line.find(inner_value), line.find(inner_value) + len(inner_value))
+                        return True
+                    
+            return True
+        except Exception:
+            self.mark_error(line_num, 0, len(line))
+            return False
