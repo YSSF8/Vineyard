@@ -248,3 +248,9 @@ class RegSyntaxHighlighter:
         self.text_widget.tag_add('warning', 
                                f"{line_num}.{start_pos}", 
                                f"{line_num}.{end_pos}")
+
+class RegTextWidget(ttk.Frame):
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.highlighter = None
+        self.create_widgets()
