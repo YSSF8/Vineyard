@@ -266,43 +266,112 @@ class LineNumbers(tk.Canvas):
         self.text_widget.bind('<Configure>', self._on_change)
         self.text_widget.bind('<<Modified>>', self._on_change)
         
+        self.bind('<Button-1>', self._on_click)
+        
+    def _on_click(self, event):
+        line_num = self.get_clicked_line(event.y)
+        if line_num is not None:
+            self.select_line(line_num)
+    
+    def get_clicked_line(self, click_y):
+        try:
+            first_visible_index = self.text_widget.index('@0,0')
+            first_line = int(first_visible_index.split('.')[0])
+            
+            text_y = click_y + int(self.text_widget.yview()[0] * self.text_widget.bbox('end-1c')[3] if self.text_widget.bbox('end-1c') else 0)
+            
+            for line_offset in range(50):
+                line_to_check = first_line + line_offset
+                line_index = f"{line_to_check}.0"
+                bbox = self.text_widget.bbox(line_index)
+                
+                if bbox is None:
+                    continue
+                
+                line_y, line_height = bbox[1], bbox[3]
+                
+                if line_y <= click_y <= line_y + line_height:
+                    return line_to_check
+                
+                if line_y > click_y:
+                    break
+                    
+        except Exception as e:
+            print(f"Error getting clicked line: {e}")
+            
+        return None
+    
+    def select_line(self, line_num):
+        try:
+            total_lines = int(self.text_widget.index('end-1c').split('.')[0])
+            if line_num < 1 or line_num > total_lines:
+                return
+                
+            line_start = f"{line_num}.0"
+            line_end = f"{line_num}.end"
+            
+            if line_num == total_lines:
+                line_content = self.text_widget.get(line_start, line_end)
+                if not line_content.endswith('\n'):
+                    line_end = f"{line_num}.end"
+                else:
+                    line_end = f"{line_num}.end-1c"
+            else:
+                line_end = f"{line_num}.end"
+            
+            self.text_widget.tag_remove('sel', '1.0', 'end')
+            self.text_widget.tag_add('sel', line_start, line_end)
+            self.text_widget.mark_set('insert', line_start)
+            self.text_widget.focus_set()
+            
+            self.text_widget.see(line_start)
+            
+        except Exception as e:
+            print(f"Error selecting line {line_num}: {e}")
+    
     def _on_change(self, event=None):
         self.update_line_numbers()
         
     def update_line_numbers(self):
         self.delete("all")
-        
-        index = self.text_widget.index('@0,0')
-        first_line = int(index.split('.')[0])
-        
-        total_lines = int(self.text_widget.index('end-1c').split('.')[0])
-        
-        line_height = self.text_widget.dlineinfo('1.0')
-        if line_height:
-            line_height = line_height[3]
-            visible_lines = int(self.text_widget.winfo_height() / line_height) + 2
-        else:
-            visible_lines = 30
-            
-        last_line = min(first_line + visible_lines, total_lines)
-        
-        for line_num in range(first_line, last_line + 1):
-            y_position = self._get_line_y_position(line_num)
-            if y_position is not None:
-                self.create_text(
-                    50, y_position,
-                    text=str(line_num),
-                    anchor="ne",
-                    fill="#858585",
-                    font=self.font,
-                    tags="line_number"
-                )
+
+        try:
+            first_index = self.text_widget.index('@0,0')
+            last_index = self.text_widget.index('@0,%d' % self.text_widget.winfo_height())
+
+            first_line = int(first_index.split('.')[0])
+            last_line = int(last_index.split('.')[0])
+
+            total_lines = int(self.text_widget.index('end-1c').split('.')[0])
+            last_line = min(last_line, total_lines)
+
+            for line_num in range(first_line, last_line + 1):
+                bbox = self.text_widget.bbox(f"{line_num}.0")
+                if bbox:
+                    y_position = bbox[1]
+
+                    text_id = self.create_text(
+                        45, y_position,
+                        text=str(line_num),
+                        anchor="ne",
+                        fill="#858585",
+                        font=self.font,
+                        tags=("line_number", f"line_{line_num}")
+                    )
+
+                    self.tag_bind(text_id, '<Enter>', lambda e, tid=text_id: self._on_hover_enter(tid))
+                    self.tag_bind(text_id, '<Leave>', lambda e, tid=text_id: self._on_hover_leave(tid))
+
+        except Exception as e:
+            print(f"Error updating line numbers: {e}")
     
-    def _get_line_y_position(self, line_num):
-        bbox = self.text_widget.bbox(f"{line_num}.0")
-        if bbox:
-            return bbox[1]
-        return None
+    def _on_hover_enter(self, text_id):
+        self.itemconfig(text_id, fill="#ffffff")
+        self.config(cursor="hand2")
+    
+    def _on_hover_leave(self, text_id):
+        self.itemconfig(text_id, fill="#858585")
+        self.config(cursor="")
 
 
 class RegTextWidget(ttk.Frame):
@@ -344,6 +413,8 @@ class RegTextWidget(ttk.Frame):
         self.highlighter = RegSyntaxHighlighter(self.text_widget)
         
         self.text_widget.bind('<<Modified>>', self._on_modified)
+        self.text_widget.bind('<Control-l>', self._select_current_line)
+        self.text_widget.bind('<Control-L>', self._select_current_line)
     
     def _on_text_scroll(self, first, last):
         v_scrollbar = self.grid_slaves(row=0, column=2)
@@ -357,6 +428,15 @@ class RegTextWidget(ttk.Frame):
             self.highlighter.highlight()
             self.line_numbers.update_line_numbers()
             self.text_widget.edit_modified(False)
+    
+    def _select_current_line(self, event=None):
+        current_line = self.text_widget.index('insert').split('.')[0]
+        self.select_line(int(current_line))
+        return "break"
+    
+    def select_line(self, line_num):
+        if self.line_numbers:
+            self.line_numbers.select_line(line_num)
     
     def insert(self, index, text, tags=None):
         if tags:
