@@ -1,4 +1,4 @@
-from customtkinter import CTkToplevel, CTkFrame, CTkButton, CTkLabel, CTkEntry, CTkScrollableFrame
+from customtkinter import CTkToplevel, CTkFrame, CTkButton, CTkLabel, CTkEntry, CTkScrollableFrame, CTkTabview
 import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox
 import json
@@ -12,6 +12,7 @@ class ThemeMaker:
     _on_close_callback = None
     _color_entries = {}
     _original_colors = {}
+    _reg_text_widget = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -47,12 +48,19 @@ class ThemeMaker:
         main_container.grid_rowconfigure(1, weight=0)
         main_container.grid_columnconfigure(0, weight=1)
 
-        color_pickers_container = CTkFrame(main_container)
-        color_pickers_container.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
-        color_pickers_container.grid_columnconfigure(0, weight=1)
-        color_pickers_container.grid_rowconfigure(0, weight=1)
-
-        self.create_color_pickers(color_pickers_container)
+        tabview = CTkTabview(main_container)
+        tabview.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        
+        basic_tab = tabview.add("Basic")
+        advanced_tab = tabview.add("Advanced")
+        
+        basic_tab.grid_columnconfigure(0, weight=1)
+        basic_tab.grid_rowconfigure(0, weight=1)
+        advanced_tab.grid_columnconfigure(0, weight=1)
+        advanced_tab.grid_rowconfigure(0, weight=1)
+        
+        self.create_basic_tab(basic_tab)
+        self.create_advanced_tab(advanced_tab)
 
         button_frame = CTkFrame(main_container)
         button_frame.grid(row=1, column=0, sticky="ew", pady=0)
@@ -72,7 +80,7 @@ class ThemeMaker:
         self._window.bind("<Destroy>", self._on_destroy)
         self._window.focus_force()
 
-    def create_color_pickers(self, parent):
+    def create_basic_tab(self, parent):
         scrollable_frame = CTkScrollableFrame(parent)
         scrollable_frame.pack(fill="both", expand=True, padx=0, pady=0)
 
@@ -84,6 +92,8 @@ class ThemeMaker:
         except FileNotFoundError:
             keys = {}
 
+        self._preview_labels = {}
+
         row = 0
         for key, value in keys.items():
             if value is None:
@@ -93,7 +103,7 @@ class ThemeMaker:
 
             color_frame = CTkFrame(scrollable_frame)
             color_frame.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
-            
+
             color_frame.grid_columnconfigure(1, weight=1)
 
             label = CTkLabel(color_frame, text=key, width=200, anchor="w")
@@ -107,6 +117,7 @@ class ThemeMaker:
             color_preview = CTkLabel(color_frame, text="", width=30, height=20, 
                                    fg_color=value, corner_radius=3)
             color_preview.grid(row=0, column=2, padx=5, pady=5)
+            self._preview_labels[key] = color_preview
 
             picker_btn = CTkButton(color_frame, text="Pick Color", width=80, height=20,
                                  command=lambda k=key, e=color_entry, p=color_preview: self.choose_color(k, e, p))
@@ -114,18 +125,116 @@ class ThemeMaker:
 
             row += 1
 
+    def create_advanced_tab(self, parent):
+        from components.reg_highlight import RegTextWidget
+
+        advanced_container = CTkFrame(parent)
+        advanced_container.pack(fill="both", expand=True, padx=0, pady=0)
+        advanced_container.grid_rowconfigure(0, weight=1)
+        advanced_container.grid_rowconfigure(1, weight=0)
+        advanced_container.grid_columnconfigure(0, weight=1)
+
+        self._reg_text_widget = RegTextWidget(advanced_container)
+        self._reg_text_widget.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        button_frame = CTkFrame(advanced_container)
+        button_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=0)
+        button_frame.grid_columnconfigure(2, weight=0)
+
+        update_btn = CTkButton(button_frame, text="Update from Basic Tab", 
+                              command=self.update_reg_code_from_basic)
+        update_btn.grid(row=0, column=1, padx=(5, 5), pady=5)
+
+        apply_btn = CTkButton(button_frame, text="Apply to Basic Tab", 
+                             command=self.update_basic_from_reg_code)
+        apply_btn.grid(row=0, column=2, padx=(0, 0), pady=5)
+
+        self.update_reg_code_from_basic()
+
+    def update_reg_code_from_basic(self):
+        if self._reg_text_widget:
+            reg_content = self.generate_registry_file()
+            self._reg_text_widget.delete('1.0', tk.END)
+            self._reg_text_widget.insert('1.0', reg_content)
+
+    def update_basic_from_reg_code(self):
+        if not self._reg_text_widget:
+            return
+
+        is_valid, errors, warnings = self._reg_text_widget.validate_content()
+
+        if not is_valid:
+            error_msg = "Cannot apply due to syntax errors:\n\n" + "\n".join(errors[:5])
+            if len(errors) > 5:
+                error_msg += f"\n\n... and {len(errors) - 5} more errors"
+            if warnings:
+                error_msg += "\n\nWarnings:\n" + "\n".join(warnings[:3])
+            messagebox.showerror("Syntax Errors", error_msg)
+            return
+
+        if warnings:
+            warning_msg = "Warnings found:\n\n" + "\n".join(warnings)
+            if not messagebox.askyesno("Warnings", warning_msg + "\n\nContinue anyway?"):
+                return
+
+        try:
+            reg_content = self._reg_text_widget.get('1.0', tk.END)
+            lines = reg_content.split('\n')
+
+            updated_count = 0
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith(';') and not line.startswith('[') and not line.startswith('Windows'):
+                    if '=' in line:
+                        key_part, value_part = line.split('=', 1)
+                        key = key_part.strip().strip('"')
+                        value = value_part.strip().strip('"')
+
+                        if key in self._color_entries and ' ' in value:
+                            rgb_values = value.split()
+                            if len(rgb_values) == 3:
+                                try:
+                                    r, g, b = map(int, rgb_values)
+                                    if not all(0 <= val <= 255 for val in [r, g, b]):
+                                        continue
+
+                                    hex_color = f"#{r:02x}{g:02x}{b:02x}".upper()
+                                    self._color_entries[key].delete(0, tk.END)
+                                    self._color_entries[key].insert(0, hex_color)
+
+                                    if hasattr(self, '_preview_labels') and key in self._preview_labels:
+                                        self._preview_labels[key].configure(fg_color=hex_color)
+
+                                    updated_count += 1
+                                except ValueError:
+                                    continue
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to parse registry code:\n{str(e)}")
+
     def choose_color(self, key, entry, preview):
         current_color = entry.get()
+
+        theme_window = self._window
+
         color_code = colorchooser.askcolor(
             initialcolor=current_color,
             title=f"Choose color for {key}"
         )
-        
+
         if color_code[1] is not None:
             new_color = color_code[1]
             entry.delete(0, tk.END)
             entry.insert(0, new_color)
             preview.configure(fg_color=new_color)
+            if hasattr(self, '_preview_labels') and key in self._preview_labels:
+                self._preview_labels[key].configure(fg_color=new_color)
+
+            if theme_window and theme_window.winfo_exists():
+                theme_window.lift()
+                theme_window.focus_force()
+                entry.focus_set()
 
     def hex_to_rgb(self, hex_color):
         hex_color = hex_color.lstrip('#')
@@ -137,15 +246,39 @@ class ThemeMaker:
             r, g, b = 0, 0, 0
         return f"{r} {g} {b}"
 
+    def rgb_to_hex(self, rgb_string):
+        try:
+            r, g, b = map(int, rgb_string.split())
+            return f"#{r:02x}{g:02x}{b:02x}".upper()
+        except:
+            return "#000000"
+
     def save_theme(self):
         try:
+            self.update_reg_code_from_basic()
+    
+            if hasattr(self, '_reg_text_widget') and self._reg_text_widget:
+                is_valid, errors, warnings = self._reg_text_widget.validate_content()
+                
+                if not is_valid:
+                    error_msg = "Cannot save due to syntax errors:\n\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n\n... and {len(errors) - 5} more errors"
+                    messagebox.showerror("Syntax Errors", error_msg)
+                    return
+                    
+                if warnings:
+                    warning_msg = "Warnings found:\n\n" + "\n".join(warnings)
+                    if not messagebox.askyesno("Warnings", warning_msg + "\n\nSave anyway?"):
+                        return
+    
             themes_dir = "./themes"
             if not os.path.exists(themes_dir):
                 os.makedirs(themes_dir)
-
+    
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             default_filename = f"custom_theme_{timestamp}.reg"
-            
+    
             filename = filedialog.asksaveasfilename(
                 initialdir=themes_dir,
                 defaultextension=".reg",
@@ -153,20 +286,20 @@ class ThemeMaker:
                 initialfile=default_filename,
                 title="Save Theme As"
             )
-            
+    
             if not filename:
                 return
-
-            reg_content = self.generate_registry_file()
-
+    
+            reg_content = self._reg_text_widget.get('1.0', tk.END) if self._reg_text_widget else self.generate_registry_file()
+    
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(reg_content)
-
+    
             self._original_colors = {key: entry.get() for key, entry in self._color_entries.items()}
-
+    
             theme_name = os.path.basename(filename)
             messagebox.showinfo("Success", f"Theme saved successfully as:\n{theme_name}.")
-
+    
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save theme:\n{str(e)}")
 
