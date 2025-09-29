@@ -161,3 +161,6 @@ class RegSyntaxHighlighter:
         for tag in self.text_widget.tag_names():
             if tag != 'sel':
                 self.text_widget.tag_remove(tag, '1.0', tk.END)
+    
+    def refresh(self):
+        self.highlight()
