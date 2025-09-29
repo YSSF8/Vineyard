@@ -105,3 +105,13 @@ class RegSyntaxHighlighter:
 
         elif '=' in line:
             self.highlight_key_value(line, line_num)
+    
+    def highlight_brackets(self, line, line_num):
+        open_bracket = line.find('[')
+        close_bracket = line.find(']')
+
+        if open_bracket != -1:
+            self.text_widget.tag_add('brackets', f"{line_num}.{open_bracket}", f"{line_num}.{open_bracket + 1}")
+
+        if close_bracket != -1:
+            self.text_widget.tag_add('brackets', f"{line_num}.{close_bracket}", f"{line_num}.{close_bracket + 1}")
