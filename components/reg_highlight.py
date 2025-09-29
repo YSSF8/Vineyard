@@ -115,3 +115,31 @@ class RegSyntaxHighlighter:
 
         if close_bracket != -1:
             self.text_widget.tag_add('brackets', f"{line_num}.{close_bracket}", f"{line_num}.{close_bracket + 1}")
+    
+    def highlight_key_value(self, line, line_num):
+        if '=' not in line:
+            return
+
+        key_part, value_part = line.split('=', 1)
+        key_start = line.find('"')
+        key_end = line.find('"', key_start + 1) + 1 if key_start != -1 else -1
+
+        if key_start != -1 and key_end != -1:
+            self.text_widget.tag_add('string_key', f"{line_num}.{key_start}", f"{line_num}.{key_end}")
+
+        operator_pos = line.find('=')
+
+        if operator_pos != -1:
+            self.text_widget.tag_add('operator', f"{line_num}.{operator_pos}", f"{line_num}.{operator_pos + 1}")
+
+        value_start = operator_pos + 1
+
+        if value_start < len(line):
+            value_text = line[value_start:]
+
+            if value_text.strip().startswith('"') and value_text.strip().endswith('"'):
+                value_start_abs = value_start + value_text.find('"')
+                value_end_abs = value_start + value_text.rfind('"') + 1
+                self.text_widget.tag_add('string_value', f"{line_num}.{value_start_abs}", f"{line_num}.{value_end_abs}")
+                inner_value = value_text.strip('" ')
+                self.highlight_value_content(inner_value, line_num, value_start_abs + 1)
