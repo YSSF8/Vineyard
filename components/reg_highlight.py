@@ -72,3 +72,36 @@ class RegSyntaxHighlighter:
         if self.text_widget.edit_modified():
             self.highlight()
             self.text_widget.edit_modified(False)
+    
+    def highlight(self):
+        for tag in self.text_widget.tag_names():
+            if tag not in ['sel', 'error', 'warning']:
+                self.text_widget.tag_remove(tag, '1.0', tk.END)
+            else:
+                self.text_widget.tag_remove(tag, '1.0', tk.END)
+
+        text = self.text_widget.get('1.0', tk.END)
+        lines = text.split('\n')
+
+        for line_num, line in enumerate(lines, 1):
+            self.highlight_line(line, line_num)
+    
+    def highlight_line(self, line, line_num):
+        if not line.strip():
+            return
+
+        line_start = f"{line_num}.0"
+        line_end = f"{line_num}.{len(line)}"
+
+        if line.startswith('Windows Registry Editor Version'):
+            self.text_widget.tag_add('version', line_start, line_end)
+
+        elif line.strip().startswith(';'):
+            self.text_widget.tag_add('comment', line_start, line_end)
+
+        elif line.startswith('[') and line.endswith(']'):
+            self.text_widget.tag_add('header', line_start, line_end)
+            self.highlight_brackets(line, line_num)
+
+        elif '=' in line:
+            self.highlight_key_value(line, line_num)
