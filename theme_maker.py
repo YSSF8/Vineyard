@@ -13,6 +13,10 @@ class ThemeMaker:
     _color_entries = {}
     _original_colors = {}
     _reg_text_widget = None
+    _is_edit_mode = False
+    _current_edit_file = None
+    _save_button = None
+    _save_as_button = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -28,14 +32,41 @@ class ThemeMaker:
 
     def open(self):
         if self._window is None or not self._window.winfo_exists():
+            self._is_edit_mode = False
+            self._current_edit_file = None
             self.create_window()
         else:
             self._window.lift()
             self._window.focus_force()
+    
+    def open_in_edit_mode(self, file_path, theme_name):
+        display_name = os.path.splitext(theme_name)[0]
+
+        if self._window is None or not self._window.winfo_exists():
+            self._is_edit_mode = True
+            self._current_edit_file = file_path
+            self.create_window()
+            self.load_theme_from_file(file_path)
+            self._window.title(f"Vineyard - Theme Maker - Editing: {display_name}")
+        else:
+            self._is_edit_mode = True
+            self._current_edit_file = file_path
+            self.load_theme_from_file(file_path)
+            self._window.title(f"Vineyard - Theme Maker - Editing: {display_name}")
+            self.update_save_buttons()
+
+        self._window.lift()
+        self._window.focus_force()
 
     def create_window(self):
         self._window = CTkToplevel()
-        self._window.title("Vineyard - Theme Maker")
+        
+        if self._is_edit_mode:
+            theme_name = os.path.splitext(os.path.basename(self._current_edit_file))[0]
+            self._window.title(f"Vineyard - Theme Maker - Editing: {theme_name}")
+        else:
+            self._window.title("Vineyard - Theme Maker")
+            
         self._window.geometry("800x600")
         self._window.resizable(True, True)
         self._window.minsize(700, 500)
@@ -68,13 +99,21 @@ class ThemeMaker:
         button_frame.grid_columnconfigure(0, weight=1)
         button_frame.grid_columnconfigure(1, weight=0)
         button_frame.grid_columnconfigure(2, weight=0)
+        button_frame.grid_columnconfigure(3, weight=0)
 
         cancel_btn = CTkButton(button_frame, text="Cancel", command=self.on_close, 
                               fg_color="transparent", border_width=1, text_color=("gray10", "#DCE4EE"))
         cancel_btn.grid(row=0, column=1, padx=(5, 5), pady=10)
 
-        save_btn = CTkButton(button_frame, text="Save Theme", command=self.save_theme)
-        save_btn.grid(row=0, column=2, padx=(0, 0), pady=10)
+        self._save_as_button = CTkButton(button_frame, text="Save As", 
+                                       command=self.save_theme_as)
+        self._save_as_button.grid(row=0, column=2, padx=(5, 5), pady=10)
+
+        save_text = "Save" if self._is_edit_mode else "Save Theme"
+        self._save_button = CTkButton(button_frame, text=save_text, command=self.save_theme)
+        self._save_button.grid(row=0, column=3, padx=(0, 0), pady=10)
+
+        self.update_save_buttons()
 
         self._window.protocol("WM_DELETE_WINDOW", self.on_close)
         self._window.bind("<Destroy>", self._on_destroy)
@@ -210,8 +249,14 @@ class ThemeMaker:
                                     updated_count += 1
                                 except ValueError:
                                     continue
+                                
+            self.update_reg_code_from_basic()
+
+            return True
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to parse registry code:\n{str(e)}")
+            return False
 
     def choose_color(self, key, entry, preview):
         current_color = entry.get()
@@ -252,54 +297,128 @@ class ThemeMaker:
             return f"#{r:02x}{g:02x}{b:02x}".upper()
         except:
             return "#000000"
+    
+    def update_save_buttons(self):
+        if self._save_button and self._save_as_button:
+            if self._is_edit_mode:
+                self._save_button.configure(text="Save")
+                self._save_as_button.grid()
+            else:
+                self._save_button.configure(text="Save Theme")
+                self._save_as_button.grid_remove()
+
+    def load_theme_from_file(self, file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reg_content = f.read()
+            
+            lines = reg_content.split('\n')
+            color_values = {}
+            
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith(';') and not line.startswith('[') and not line.startswith('Windows'):
+                    if '=' in line:
+                        key_part, value_part = line.split('=', 1)
+                        key = key_part.strip().strip('"')
+                        value = value_part.strip().strip('"')
+                        
+                        if ' ' in value:
+                            rgb_values = value.split()
+                            if len(rgb_values) == 3:
+                                try:
+                                    r, g, b = map(int, rgb_values)
+                                    hex_color = f"#{r:02x}{g:02x}{b:02x}".upper()
+                                    color_values[key] = hex_color
+                                except ValueError:
+                                    continue
+            
+            for key, hex_color in color_values.items():
+                if key in self._color_entries:
+                    self._color_entries[key].delete(0, tk.END)
+                    self._color_entries[key].insert(0, hex_color)
+                    
+                    if hasattr(self, '_preview_labels') and key in self._preview_labels:
+                        self._preview_labels[key].configure(fg_color=hex_color)
+            
+            self.update_reg_code_from_basic()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load theme: {str(e)}")
+
+    def save_theme_as(self):
+        was_edit_mode = self._is_edit_mode
+        current_file = self._current_edit_file
+
+        self._is_edit_mode = False
+        self._current_edit_file = None
+
+        try:
+            self.save_theme()
+
+            if not self._is_edit_mode and was_edit_mode:
+                self._is_edit_mode = True
+        except Exception:
+            self._is_edit_mode = was_edit_mode
+            self._current_edit_file = current_file
+            raise
 
     def save_theme(self):
         try:
-            self.update_reg_code_from_basic()
-    
             if hasattr(self, '_reg_text_widget') and self._reg_text_widget:
                 is_valid, errors, warnings = self._reg_text_widget.validate_content()
-                
+
                 if not is_valid:
                     error_msg = "Cannot save due to syntax errors:\n\n" + "\n".join(errors[:5])
                     if len(errors) > 5:
                         error_msg += f"\n\n... and {len(errors) - 5} more errors"
                     messagebox.showerror("Syntax Errors", error_msg)
                     return
-                    
+
                 if warnings:
                     warning_msg = "Warnings found:\n\n" + "\n".join(warnings)
                     if not messagebox.askyesno("Warnings", warning_msg + "\n\nSave anyway?"):
                         return
-    
+
+                self.update_basic_from_reg_code()
+
+            self.update_reg_code_from_basic()
+
             themes_dir = "./themes"
             if not os.path.exists(themes_dir):
                 os.makedirs(themes_dir)
-    
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"custom_theme_{timestamp}.reg"
-    
-            filename = filedialog.asksaveasfilename(
-                initialdir=themes_dir,
-                defaultextension=".reg",
-                filetypes=[("Registry files", "*.reg"), ("All files", "*.*")],
-                initialfile=default_filename,
-                title="Save Theme As"
-            )
-    
-            if not filename:
-                return
-    
+
+            if self._is_edit_mode and self._current_edit_file:
+                filename = self._current_edit_file
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                default_filename = f"custom_theme_{timestamp}.reg"
+
+                filename = filedialog.asksaveasfilename(
+                    initialdir=themes_dir,
+                    defaultextension=".reg",
+                    filetypes=[("Registry files", "*.reg"), ("All files", "*.*")],
+                    initialfile=default_filename,
+                    title="Save Theme As"
+                )
+
+                if not filename:
+                    return
+
             reg_content = self._reg_text_widget.get('1.0', tk.END) if self._reg_text_widget else self.generate_registry_file()
-    
+
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(reg_content)
-    
+
             self._original_colors = {key: entry.get() for key, entry in self._color_entries.items()}
-    
+
             theme_name = os.path.basename(filename)
-            messagebox.showinfo("Success", f"Theme saved successfully as:\n{theme_name}.")
-    
+
+            if self._is_edit_mode:
+                messagebox.showinfo("Success", f"Theme saved successfully:\n{theme_name}")
+            else:
+                messagebox.showinfo("Success", f"Theme saved successfully as:\n{theme_name}.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save theme:\n{str(e)}")
 

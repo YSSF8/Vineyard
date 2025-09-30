@@ -47,6 +47,14 @@ class ThemeList:
         name_label = CTkLabel(theme_frame, text=display_name, anchor="w")
         name_label.pack(side="left", padx=10, pady=5, fill="x", expand=True)
         
+        edit_btn = CTkButton(
+            theme_frame,
+            text="Edit",
+            width=60,
+            command=lambda t=theme_name: self.edit_theme(t)
+        )
+        edit_btn.pack(side="right", padx=5, pady=5)
+        
         apply_btn = CTkButton(
             theme_frame,
             text="Apply",
@@ -68,8 +76,23 @@ class ThemeList:
         self.theme_buttons[theme_name] = {
             'frame': theme_frame,
             'apply_btn': apply_btn,
+            'edit_btn': edit_btn,
             'delete_btn': delete_btn
         }
+    
+    def edit_theme(self, theme_name):
+        theme_path = os.path.join(THEMES_PATH, theme_name)
+        display_name = os.path.splitext(theme_name)[0]
+        
+        self.console.system(f"Opening theme for editing: {display_name}")
+        
+        from theme_maker import ThemeMaker
+        theme_maker = ThemeMaker()
+        
+        theme_maker.open_in_edit_mode(theme_path, theme_name)
+    
+    def set_theme_maker(self, theme_maker_instance):
+        self.theme_maker = theme_maker_instance
     
     def read_reg_file(self, path):
         encodings = ["utf-16", "utf-8", "latin-1", "cp1252"]
