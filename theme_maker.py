@@ -4,6 +4,7 @@ from tkinter import colorchooser, filedialog, messagebox
 import json
 import os
 from datetime import datetime
+from components.context_menu import ContextMenu
 
 class ThemeMaker:
     _instance = None
@@ -50,15 +51,15 @@ class ThemeMaker:
         picker_btn.grid(row=0, column=3, padx=(5, 10), pady=5)
     
     def _create_context_menu(self):
-        """Create the context menu for the Advanced tab text editor"""
-        self._context_menu = tk.Menu(self._window, tearoff=0)
-        self._context_menu.add_command(label="Cut", command=self._cut_text, accelerator="Ctrl+X")
-        self._context_menu.add_command(label="Copy", command=self._copy_text, accelerator="Ctrl+C")
-        self._context_menu.add_command(label="Paste", command=self._paste_text, accelerator="Ctrl+V")
-        self._context_menu.add_command(label="Delete", command=self._delete_text, accelerator="Del")
+        self._context_menu = ContextMenu(self._window)
+
+        self._context_menu.add_command("Cut", self._cut_text, "Ctrl+X", "✂️")
+        self._context_menu.add_command("Copy", self._copy_text, "Ctrl+C", "📋")
+        self._context_menu.add_command("Paste", self._paste_text, "Ctrl+V", "📌")
+        self._context_menu.add_command("Delete", self._delete_text, "Del", "🗑️")
         self._context_menu.add_separator()
-        self._context_menu.add_command(label="Format code", command=self._format_code, accelerator="Ctrl+Shift+F")
-        self._context_menu.add_command(label="Reset", command=self._reset_advanced_tab, accelerator="Ctrl+Shift+R")
+        self._context_menu.add_command("Format Code", self._format_code, "Ctrl+Shift+F", "✨")
+        self._context_menu.add_command("Reset", self._reset_advanced_tab, "Ctrl+Shift+R", "↩️")
 
         self._reg_text_widget.text_widget.bind("<Button-3>", self._show_context_menu)
         self._reg_text_widget.text_widget.bind("<Button-2>", self._show_context_menu)
@@ -69,18 +70,18 @@ class ThemeMaker:
         self._reg_text_widget.text_widget.bind('<Control-Shift-R>', lambda e: self._reset_advanced_tab())
     
     def _show_context_menu(self, event):
+        has_selection = False
         try:
-            sel_start = self._reg_text_widget.text_widget.index("sel.first")
-            sel_end = self._reg_text_widget.text_widget.index("sel.last")
+            self._reg_text_widget.text_widget.index("sel.first")
             has_selection = True
         except tk.TclError:
             has_selection = False
 
-        self._context_menu.entryconfig("Cut", state="normal" if has_selection else "disabled")
-        self._context_menu.entryconfig("Copy", state="normal" if has_selection else "disabled")
-        self._context_menu.entryconfig("Delete", state="normal" if has_selection else "disabled")
+        self._context_menu.enable_item(0, has_selection)
+        self._context_menu.enable_item(1, has_selection)
+        self._context_menu.enable_item(3, has_selection)
 
-        self._context_menu.tk_popup(event.x_root, event.y_root)
+        self._context_menu.show(event.x_root, event.y_root)
     
     def _cut_text(self):
         self._reg_text_widget.text_widget.event_generate("<<Cut>>")
