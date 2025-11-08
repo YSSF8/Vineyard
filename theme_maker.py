@@ -48,6 +48,106 @@ class ThemeMaker:
         picker_btn = CTkButton(color_frame, text="Pick Color", width=80, height=20,
                              command=lambda k=key, e=color_entry, p=color_preview: self.choose_color(k, e, p))
         picker_btn.grid(row=0, column=3, padx=(5, 10), pady=5)
+    
+    def _create_context_menu(self):
+        """Create the context menu for the Advanced tab text editor"""
+        self._context_menu = tk.Menu(self._window, tearoff=0)
+        self._context_menu.add_command(label="Cut", command=self._cut_text, accelerator="Ctrl+X")
+        self._context_menu.add_command(label="Copy", command=self._copy_text, accelerator="Ctrl+C")
+        self._context_menu.add_command(label="Paste", command=self._paste_text, accelerator="Ctrl+V")
+        self._context_menu.add_command(label="Delete", command=self._delete_text, accelerator="Del")
+        self._context_menu.add_separator()
+        self._context_menu.add_command(label="Format code", command=self._format_code, accelerator="Ctrl+Shift+F")
+        self._context_menu.add_command(label="Reset", command=self._reset_advanced_tab, accelerator="Ctrl+Shift+R")
+
+        self._reg_text_widget.text_widget.bind("<Button-3>", self._show_context_menu)
+        self._reg_text_widget.text_widget.bind("<Button-2>", self._show_context_menu)
+
+        self._reg_text_widget.text_widget.bind('<Control-Shift-f>', lambda e: self._format_code())
+        self._reg_text_widget.text_widget.bind('<Control-Shift-F>', lambda e: self._format_code())
+        self._reg_text_widget.text_widget.bind('<Control-Shift-r>', lambda e: self._reset_advanced_tab())
+        self._reg_text_widget.text_widget.bind('<Control-Shift-R>', lambda e: self._reset_advanced_tab())
+    
+    def _show_context_menu(self, event):
+        try:
+            sel_start = self._reg_text_widget.text_widget.index("sel.first")
+            sel_end = self._reg_text_widget.text_widget.index("sel.last")
+            has_selection = True
+        except tk.TclError:
+            has_selection = False
+
+        self._context_menu.entryconfig("Cut", state="normal" if has_selection else "disabled")
+        self._context_menu.entryconfig("Copy", state="normal" if has_selection else "disabled")
+        self._context_menu.entryconfig("Delete", state="normal" if has_selection else "disabled")
+
+        self._context_menu.tk_popup(event.x_root, event.y_root)
+    
+    def _cut_text(self):
+        self._reg_text_widget.text_widget.event_generate("<<Cut>>")
+
+    def _copy_text(self):
+        self._reg_text_widget.text_widget.event_generate("<<Copy>>")
+
+    def _paste_text(self):
+        self._reg_text_widget.text_widget.event_generate("<<Paste>>")
+
+    def _delete_text(self):
+        try:
+            self._reg_text_widget.text_widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        except tk.TclError:
+            pass
+
+    def _format_code(self):
+        if not self._reg_text_widget or not hasattr(self, '_initial_reg_content'):
+            return
+
+        current_content = self._reg_text_widget.get('1.0', tk.END)
+        current_dict = self._parse_reg_values(current_content)
+
+        reset_dict = self._parse_reg_values(self._initial_reg_content)
+
+        formatted_lines = ["Windows Registry Editor Version 5.00", ""]
+        formatted_lines.append("[HKEY_CURRENT_USER\\Control Panel\\Colors]")
+
+        all_keys = sorted(current_dict.keys())
+        for key in all_keys:
+            value = current_dict[key]
+            formatted_lines.append(f'"{key}"="{value}"')
+
+        formatted_content = '\n'.join(formatted_lines)
+        self._reg_text_widget.delete('1.0', tk.END)
+        self._reg_text_widget.insert('1.0', formatted_content)
+
+        self._reg_text_widget.highlighter.highlight()
+        self._reg_text_widget.line_numbers.update_line_numbers()
+
+    def _reset_advanced_tab(self):
+        if not hasattr(self, '_initial_reg_content') or not self._initial_reg_content:
+            return
+
+        if messagebox.askyesno("Reset", 
+                              "Reset Advanced tab to initial state?\n\nThis will discard all changes made in the Advanced tab."):
+            self._reg_text_widget.delete('1.0', tk.END)
+            self._reg_text_widget.insert('1.0', self._initial_reg_content)
+            self._reg_text_widget.highlighter.highlight()
+
+    def _parse_reg_values(self, content):
+        values = {}
+        lines = content.split('\n')
+
+        for line in lines:
+            line = line.strip()
+            if line and '=' in line and not line.startswith(';') and not line.startswith('['):
+                try:
+                    key_part, value_part = line.split('=', 1)
+                    key = key_part.strip().strip('"')
+                    value = value_part.strip().strip('"')
+                    if key:
+                        values[key] = value
+                except:
+                    continue
+                
+        return values
 
     def set_on_close_callback(self, callback):
         self._on_close_callback = callback
@@ -206,6 +306,9 @@ class ThemeMaker:
         apply_btn.grid(row=0, column=2, padx=(0, 0), pady=5)
 
         self.update_reg_code_from_basic()
+        self._initial_reg_content = self._reg_text_widget.get('1.0', tk.END)
+
+        self._create_context_menu()
 
     def update_reg_code_from_basic(self):
         if self._reg_text_widget:
@@ -326,10 +429,10 @@ class ThemeMaker:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 reg_content = f.read()
-            
+
             lines = reg_content.split('\n')
             color_values = {}
-            
+
             for line in lines:
                 line = line.strip()
                 if line and not line.startswith(';') and not line.startswith('[') and not line.startswith('Windows'):
@@ -337,7 +440,7 @@ class ThemeMaker:
                         key_part, value_part = line.split('=', 1)
                         key = key_part.strip().strip('"')
                         value = value_part.strip().strip('"')
-                        
+
                         if ' ' in value:
                             rgb_values = value.split()
                             if len(rgb_values) == 3:
@@ -347,17 +450,19 @@ class ThemeMaker:
                                     color_values[key] = hex_color
                                 except ValueError:
                                     continue
-            
+
             for key, hex_color in color_values.items():
                 if key in self._color_entries:
                     self._color_entries[key].delete(0, tk.END)
                     self._color_entries[key].insert(0, hex_color)
-                    
+
                     if hasattr(self, '_preview_labels') and key in self._preview_labels:
                         self._preview_labels[key].configure(fg_color=hex_color)
-            
+
             self.update_reg_code_from_basic()
-            
+
+            self._initial_reg_content = self._reg_text_widget.get('1.0', tk.END)
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load theme: {str(e)}")
 
