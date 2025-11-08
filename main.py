@@ -68,7 +68,7 @@ def check_theme_maker_status():
     else:
         update_theme_maker_button_state()
 
-header_init.add_button("Revert", command=lambda: run_revert_command(console))
+header_init.add_button("Revert", command=lambda: run_revert_command(console, root))
 header_init.add_button("Open Themes Path", command=lambda: open_themes_path(console))
 header_init.add_button("Refresh", command=lambda: theme_list.refresh_themes())
 theme_maker_button = header_init.add_button("Theme Maker", command=open_theme_maker)
