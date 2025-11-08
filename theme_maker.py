@@ -26,6 +26,28 @@ class ThemeMaker:
     def __init__(self):
         if not self._initialized:
             self._initialized = True
+    
+    def _create_color_row(self, parent, key, value, row):
+        color_frame = CTkFrame(parent)
+        color_frame.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
+        color_frame.grid_columnconfigure(1, weight=1)
+
+        label = CTkLabel(color_frame, text=key, width=200, anchor="w")
+        label.grid(row=0, column=0, padx=(10, 5), pady=5, sticky="w")
+
+        color_entry = CTkEntry(color_frame)
+        color_entry.insert(0, value)
+        color_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self._color_entries[key] = color_entry
+
+        color_preview = CTkLabel(color_frame, text="", width=30, height=20, 
+                               fg_color=value, corner_radius=3)
+        color_preview.grid(row=0, column=2, padx=5, pady=5)
+        self._preview_labels[key] = color_preview
+
+        picker_btn = CTkButton(color_frame, text="Pick Color", width=80, height=20,
+                             command=lambda k=key, e=color_entry, p=color_preview: self.choose_color(k, e, p))
+        picker_btn.grid(row=0, column=3, padx=(5, 10), pady=5)
 
     def set_on_close_callback(self, callback):
         self._on_close_callback = callback
@@ -120,9 +142,11 @@ class ThemeMaker:
         self._window.focus_force()
 
     def create_basic_tab(self, parent):
+        for widget in parent.winfo_children():
+            widget.destroy()
+
         scrollable_frame = CTkScrollableFrame(parent)
         scrollable_frame.pack(fill="both", expand=True, padx=0, pady=0)
-
         scrollable_frame.grid_columnconfigure(0, weight=1)
 
         try:
@@ -132,37 +156,28 @@ class ThemeMaker:
             keys = {}
 
         self._preview_labels = {}
+        self._color_entries = {}
 
-        row = 0
-        for key, value in keys.items():
-            if value is None:
-                value = "#000000"
+        keys_items = list(keys.items())
+        batch_size = 20
 
-            self._original_colors[key] = value
+        def process_batch(start_index):
+            end_index = min(start_index + batch_size, len(keys_items))
 
-            color_frame = CTkFrame(scrollable_frame)
-            color_frame.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
+            for i in range(start_index, end_index):
+                key, value = keys_items[i]
+                if value is None:
+                    value = "#000000"
 
-            color_frame.grid_columnconfigure(1, weight=1)
+                self._original_colors[key] = value
+                self._create_color_row(scrollable_frame, key, value, i)
 
-            label = CTkLabel(color_frame, text=key, width=200, anchor="w")
-            label.grid(row=0, column=0, padx=(10, 5), pady=5, sticky="w")
+            if end_index < len(keys_items):
+                self._window.after(10, process_batch, end_index)
+            else:
+                self.update_reg_code_from_basic()
 
-            color_entry = CTkEntry(color_frame)
-            color_entry.insert(0, value)
-            color_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-            self._color_entries[key] = color_entry
-
-            color_preview = CTkLabel(color_frame, text="", width=30, height=20, 
-                                   fg_color=value, corner_radius=3)
-            color_preview.grid(row=0, column=2, padx=5, pady=5)
-            self._preview_labels[key] = color_preview
-
-            picker_btn = CTkButton(color_frame, text="Pick Color", width=80, height=20,
-                                 command=lambda k=key, e=color_entry, p=color_preview: self.choose_color(k, e, p))
-            picker_btn.grid(row=0, column=3, padx=(5, 10), pady=5)
-
-            row += 1
+        process_batch(0)
 
     def create_advanced_tab(self, parent):
         from components.reg_highlight import RegTextWidget
