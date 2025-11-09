@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox
 import json
 import os
+import requests
 from datetime import datetime
 from components.context_menu import ContextMenu
 
@@ -250,11 +251,51 @@ class ThemeMaker:
         scrollable_frame.pack(fill="both", expand=True, padx=0, pady=0)
         scrollable_frame.grid_columnconfigure(0, weight=1)
 
+        keys = {}
+        keys_file_path = 'keys.json'
+
         try:
-            with open('keys.json', 'r', encoding='utf-8') as f:
+            with open(keys_file_path, 'r', encoding='utf-8') as f:
                 keys = json.load(f)
         except FileNotFoundError:
+            try:
+                url = "https://raw.githubusercontent.com/YSSF8/Vineyard/refs/heads/main/keys.json"
+                headers = {'User-Agent': 'Vineyard-ThemeMaker/1.0'}
+                response = requests.get(url, timeout=15, headers=headers)
+                response.raise_for_status()
+
+                with open(keys_file_path, 'w', encoding='utf-8') as f:
+                    f.write(response.text)
+
+                keys = json.loads(response.text)
+
+            except requests.exceptions.RequestException as e:
+                messagebox.showerror("Download Error", 
+                                   f"Failed to download keys.json:\n{str(e)}\n\n"
+                                   "Please check your internet connection.")
+                keys = {}
+            except json.JSONDecodeError as e:
+                messagebox.showerror("JSON Error", 
+                                   f"Downloaded file contains invalid JSON:\n{str(e)}")
+                keys = {}
+            except Exception as e:
+                messagebox.showerror("Error", f"Unexpected error: {str(e)}")
+                keys = {}
+        except json.JSONDecodeError as e:
+            messagebox.showerror("JSON Error", f"keys.json contains invalid JSON:\n{str(e)}")
             keys = {}
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load keys.json: {str(e)}")
+            keys = {}
+
+        if not keys:
+            error_label = CTkLabel(
+                scrollable_frame, 
+                text="Failed to load keys.json. The Basic tab will be empty.", 
+                text_color="red"
+            )
+            error_label.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+            return
 
         self._preview_labels = {}
         self._color_entries = {}
