@@ -24,8 +24,31 @@ class RegSyntaxHighlighter:
 
     def __init__(self, text_widget):
         self.text_widget = text_widget
+        self._preview_widgets = []
+        self._preview_positions = []
         self.setup_theme()
         self.bind_events()
+    
+    def _insert_preview(self, index, rgb_string):
+        try:
+            r, g, b = map(int, rgb_string.split())
+            if not all(0 <= val <= 255 for val in (r, g, b)):
+                raise ValueError("Invalid RGB range")
+            hex_color = f'#{r:02x}{g:02x}{b:02x}'
+        except (ValueError, IndexError):
+            hex_color = '#000000'
+        
+        preview = tk.Canvas(
+            self.text_widget, 
+            width=12, 
+            height=12, 
+            bg=hex_color, 
+            highlightthickness=1, 
+            highlightbackground="white"
+        )
+        
+        self.text_widget.window_create(index, window=preview)
+        self._preview_widgets.append(preview)
     
     def setup_theme(self):
         self.text_widget.configure(
@@ -74,6 +97,11 @@ class RegSyntaxHighlighter:
             self.text_widget.edit_modified(False)
     
     def highlight(self):
+        for widget in self._preview_widgets:
+            widget.destroy()
+        self._preview_widgets.clear()
+        self._preview_positions.clear()
+        
         for tag in self.text_widget.tag_names():
             if tag not in ['sel', 'error', 'warning']:
                 self.text_widget.tag_remove(tag, '1.0', tk.END)
@@ -83,6 +111,9 @@ class RegSyntaxHighlighter:
 
         for line_num, line in enumerate(lines, 1):
             self.highlight_line(line, line_num)
+        
+        for index, rgb_string in reversed(self._preview_positions):
+            self._insert_preview(index, rgb_string)
     
     def highlight_line(self, line, line_num):
         if not line.strip():
@@ -140,17 +171,20 @@ class RegSyntaxHighlighter:
                 self.highlight_value_content(inner_value, line_num, value_start_abs + 1)
     
     def highlight_value_content(self, value, line_num, start_offset):
+        hex_pattern = r'#[0-9a-fA-F]{6}'
+        for match in re.finditer(hex_pattern, value):
+            hex_start = start_offset + match.start()
+            hex_end = start_offset + match.end()
+            self.text_widget.tag_add('hex_value', f"{line_num}.{hex_start}", f"{line_num}.{hex_end}")
+
         rgb_pattern = r'\b\d{1,3}\s+\d{1,3}\s+\d{1,3}\b'
         for match in re.finditer(rgb_pattern, value):
             rgb_start = start_offset + match.start()
             rgb_end = start_offset + match.end()
             self.text_widget.tag_add('rgb_values', f"{line_num}.{rgb_start}", f"{line_num}.{rgb_end}")
 
-        hex_pattern = r'#[0-9a-fA-F]{6}'
-        for match in re.finditer(hex_pattern, value):
-            hex_start = start_offset + match.start()
-            hex_end = start_offset + match.end()
-            self.text_widget.tag_add('hex_value', f"{line_num}.{hex_start}", f"{line_num}.{hex_end}")
+            index = f"{line_num}.{rgb_start}"
+            self._preview_positions.append((index, match.group()))
 
     def clear_highlighting(self):
         for tag in self.text_widget.tag_names():
