@@ -24,8 +24,9 @@ class RegSyntaxHighlighter:
 
     def __init__(self, text_widget):
         self.text_widget = text_widget
-        self._preview_widgets = []
+        self._preview_widgets = {}
         self._preview_positions = []
+        self._is_updating = False
         self.setup_theme()
         self.bind_events()
     
@@ -33,22 +34,68 @@ class RegSyntaxHighlighter:
         try:
             r, g, b = map(int, rgb_string.split())
             if not all(0 <= val <= 255 for val in (r, g, b)):
-                raise ValueError("Invalid RGB range")
+                raise ValueError
             hex_color = f'#{r:02x}{g:02x}{b:02x}'
         except (ValueError, IndexError):
             hex_color = '#000000'
         
         preview = tk.Canvas(
             self.text_widget, 
-            width=12, 
-            height=12, 
+            width=10, 
+            height=10, 
             bg=hex_color, 
             highlightthickness=1, 
-            highlightbackground="white"
+            highlightbackground="#555555",
+            relief='flat'
         )
         
-        self.text_widget.window_create(index, window=preview)
-        self._preview_widgets.append(preview)
+        self.text_widget.window_create(index, window=preview, padx=2)
+        
+        line_num = int(index.split('.')[0])
+        if line_num not in self._preview_widgets:
+            self._preview_widgets[line_num] = []
+        self._preview_widgets[line_num].append(preview)
+    
+    def clear_line_widgets(self, line_num):
+        if line_num in self._preview_widgets:
+            for widget in reversed(self._preview_widgets[line_num]):
+                try:
+                    idx = self.text_widget.index(widget)
+                    self.text_widget.delete(idx)
+                    widget.destroy()
+                except tk.TclError:
+                    pass
+            del self._preview_widgets[line_num]
+
+    def _on_text_change(self):
+        if self._is_updating:
+            return
+
+        self._is_updating = True
+        try:
+            current_line = int(self.text_widget.index(tk.INSERT).split('.')[0])
+            self.highlight_line_only(current_line)
+        finally:
+            self._is_updating = False
+    
+    def highlight_line_only(self, line_num):
+        self.clear_line_widgets(line_num)
+        
+        line_start = f"{line_num}.0"
+        line_end = f"{line_num}.end"
+        line = self.text_widget.get(line_start, line_end)
+        
+        for tag in self.text_widget.tag_names():
+            if tag not in ['sel', 'error', 'warning']:
+                self.text_widget.tag_remove(tag, line_start, line_end)
+        
+        self.highlight_line(line, line_num)
+        
+        for index, rgb_string in reversed(self._preview_positions):
+            if int(index.split('.')[0]) == line_num:
+                self._insert_preview(index, rgb_string)
+        
+        self._preview_positions.clear()
     
     def setup_theme(self):
         self.text_widget.configure(
@@ -62,9 +109,8 @@ class RegSyntaxHighlighter:
             relief='flat',
             padx=10,
             pady=10,
-            wrap=tk.WORD
+            wrap=tk.NONE
         )
-
         self.configure_tags()
     
     def configure_tags(self):
@@ -78,47 +124,62 @@ class RegSyntaxHighlighter:
             'hex_value': {'foreground': self.COLORS['hex_values']},
             'operator': {'foreground': self.COLORS['operators']},
             'brackets': {'foreground': self.COLORS['brackets']},
-            'line_highlight': {'background': self.COLORS['line_highlight']},
-            'error': {'foreground': self.COLORS['error'], 'underline': True, 'underlinefg': self.COLORS['error']},
-            'warning': {'foreground': self.COLORS['warning'], 'underline': True, 'underlinefg': self.COLORS['warning']},
+            'error': {'foreground': self.COLORS['error'], 'underline': True},
+            'warning': {'foreground': self.COLORS['warning'], 'underline': True},
         }
 
         for tag_name, config in tags_config.items():
             self.text_widget.tag_configure(tag_name, **config)
+
+        self.text_widget.tag_raise('rgb_values', 'string_value')
+        self.text_widget.tag_raise('hex_value', 'string_value')
     
     def bind_events(self):
-        self.text_widget.bind('<KeyRelease>', lambda e: self.highlight())
-        self.text_widget.bind('<ButtonRelease>', lambda e: self.highlight())
+        self.text_widget.bind('<KeyRelease>', self._on_key_release)
         self.text_widget.bind('<<Modified>>', self.on_modified)
     
+    def _on_key_release(self, event):
+        if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Home', 'End', 'Prior', 'Next'):
+            return
+        self._on_text_change()
+    
     def on_modified(self, event=None):
+        if self._is_updating:
+            return
+            
         if self.text_widget.edit_modified():
-            self.highlight()
+            self.highlight() 
             self.text_widget.edit_modified(False)
     
     def highlight(self):
-        for widget in self._preview_widgets:
-            widget.destroy()
-        self._preview_widgets.clear()
-        self._preview_positions.clear()
+        if self._is_updating: return
+        self._is_updating = True
         
-        for tag in self.text_widget.tag_names():
-            if tag not in ['sel', 'error', 'warning']:
-                self.text_widget.tag_remove(tag, '1.0', tk.END)
+        try:
+            for line_num in list(self._preview_widgets.keys()):
+                self.clear_line_widgets(line_num)
+            
+            for tag in self.text_widget.tag_names():
+                if tag not in ['sel', 'error', 'warning']:
+                    self.text_widget.tag_remove(tag, '1.0', tk.END)
 
-        text = self.text_widget.get('1.0', tk.END)
-        lines = text.split('\n')
+            text = self.text_widget.get('1.0', tk.END)
+            lines = text.split('\n')
 
-        for line_num, line in enumerate(lines, 1):
-            self.highlight_line(line, line_num)
-        
-        for index, rgb_string in reversed(self._preview_positions):
-            self._insert_preview(index, rgb_string)
+            for line_num, line in enumerate(lines, 1):
+                self.highlight_line(line, line_num)
+            
+            for index, rgb_string in reversed(self._preview_positions):
+                self._insert_preview(index, rgb_string)
+            self._preview_positions.clear()
+            
+        finally:
+            self._is_updating = False
     
     def highlight_line(self, line, line_num):
         if not line.strip():
             return
-
+        
         line_start = f"{line_num}.0"
         line_end = f"{line_num}.{len(line)}"
 
@@ -135,56 +196,46 @@ class RegSyntaxHighlighter:
     def highlight_brackets(self, line, line_num):
         open_bracket = line.find('[')
         close_bracket = line.find(']')
-
         if open_bracket != -1:
             self.text_widget.tag_add('brackets', f"{line_num}.{open_bracket}", f"{line_num}.{open_bracket + 1}")
-
         if close_bracket != -1:
             self.text_widget.tag_add('brackets', f"{line_num}.{close_bracket}", f"{line_num}.{close_bracket + 1}")
     
     def highlight_key_value(self, line, line_num):
-        if '=' not in line:
-            return
-
-        key_part, value_part = line.split('=', 1)
-        key_start = line.find('"')
-        key_end = line.find('"', key_start + 1) + 1 if key_start != -1 else -1
-
-        if key_start != -1 and key_end != -1:
-            self.text_widget.tag_add('string_key', f"{line_num}.{key_start}", f"{line_num}.{key_end}")
+        if '=' not in line: return
 
         operator_pos = line.find('=')
+        self.text_widget.tag_add('operator', f"{line_num}.{operator_pos}", f"{line_num}.{operator_pos + 1}")
 
-        if operator_pos != -1:
-            self.text_widget.tag_add('operator', f"{line_num}.{operator_pos}", f"{line_num}.{operator_pos + 1}")
+        match = re.search(r'(?P<key>"[^"]*")\s*=\s*(?P<value>"[^"]*")', line)
+        if not match: return
 
-        value_start = operator_pos + 1
+        key_start, key_end = match.start('key'), match.end('key')
+        self.text_widget.tag_add('string_key', f"{line_num}.{key_start}", f"{line_num}.{key_end}")
 
-        if value_start < len(line):
-            value_text = line[value_start:]
+        value_start, value_end = match.start('value'), match.end('value')
+        self.text_widget.tag_add('string_value', f"{line_num}.{value_start}", f"{line_num}.{value_end}")
 
-            if value_text.strip().startswith('"') and value_text.strip().endswith('"'):
-                value_start_abs = value_start + value_text.find('"')
-                value_end_abs = value_start + value_text.rfind('"') + 1
-                self.text_widget.tag_add('string_value', f"{line_num}.{value_start_abs}", f"{line_num}.{value_end_abs}")
-                inner_value = value_text.strip('" ')
-                self.highlight_value_content(inner_value, line_num, value_start_abs + 1)
+        inner_value = match.group('value').strip('"')
+        if inner_value:
+            self.highlight_value_content(inner_value, line_num, value_start + 1, value_start)
     
-    def highlight_value_content(self, value, line_num, start_offset):
-        hex_pattern = r'#[0-9a-fA-F]{6}'
-        for match in re.finditer(hex_pattern, value):
-            hex_start = start_offset + match.start()
-            hex_end = start_offset + match.end()
-            self.text_widget.tag_add('hex_value', f"{line_num}.{hex_start}", f"{line_num}.{hex_end}")
+    def highlight_value_content(self, value, line_num, content_start_offset, quote_start_offset):
+        for match in re.finditer(r'#[0-9a-fA-F]{6}', value):
+            h_start = content_start_offset + match.start()
+            h_end = content_start_offset + match.end()
+            self.text_widget.tag_add('hex_value', f"{line_num}.{h_start}", f"{line_num}.{h_end}")
 
-        rgb_pattern = r'\b\d{1,3}\s+\d{1,3}\s+\d{1,3}\b'
-        for match in re.finditer(rgb_pattern, value):
-            rgb_start = start_offset + match.start()
-            rgb_end = start_offset + match.end()
+        rgb_matches = list(re.finditer(r'\d{1,3}\s+\d{1,3}\s+\d{1,3}', value))
+        for match in rgb_matches:
+            rgb_start = content_start_offset + match.start()
+            rgb_end = content_start_offset + match.end()
             self.text_widget.tag_add('rgb_values', f"{line_num}.{rgb_start}", f"{line_num}.{rgb_end}")
 
-            index = f"{line_num}.{rgb_start}"
-            self._preview_positions.append((index, match.group()))
+        if rgb_matches:
+            first_match = rgb_matches[0]
+            index = f"{line_num}.{quote_start_offset}"
+            self._preview_positions.append((index, first_match.group()))
 
     def clear_highlighting(self):
         for tag in self.text_widget.tag_names():
