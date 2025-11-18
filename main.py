@@ -9,7 +9,7 @@ set_appearance_mode("dark")
 set_default_color_theme("blue")
 
 root = CTk()
-root.title("Vineyard V1.1")
+root.title("Vineyard V1.2")
 root.geometry("700x600")
 
 try:
