@@ -251,6 +251,29 @@ class ThemeMaker:
         scrollable_frame.grid_columnconfigure(2, weight=0)
         scrollable_frame.grid_columnconfigure(3, weight=0)
 
+        def _on_mouse_wheel(event):
+            if not scrollable_frame.winfo_exists() or not scrollable_frame.winfo_viewable():
+                return
+
+            x1 = scrollable_frame.winfo_rootx()
+            y1 = scrollable_frame.winfo_rooty()
+            x2 = x1 + scrollable_frame.winfo_width()
+            y2 = y1 + scrollable_frame.winfo_height()
+
+            if x1 <= event.x_root <= x2 and y1 <= event.y_root <= y2:
+                if os.name == "nt":
+                    if event.delta:
+                        units = int(-1 * (event.delta / 120))
+                        scrollable_frame._parent_canvas.yview_scroll(units, "units")
+                elif event.num == 4:
+                     scrollable_frame._parent_canvas.yview_scroll(-1, "units")
+                elif event.num == 5:
+                     scrollable_frame._parent_canvas.yview_scroll(1, "units")
+
+        self._window.bind("<MouseWheel>", _on_mouse_wheel, add="+")
+        self._window.bind("<Button-4>", _on_mouse_wheel, add="+")
+        self._window.bind("<Button-5>", _on_mouse_wheel, add="+")
+
         keys = {}
         keys_file_path = 'keys.json'
 
@@ -295,22 +318,20 @@ class ThemeMaker:
 
         self._preview_labels = {}
         self._color_entries = {}
-
         keys_items = list(keys.items())
         
         initial_batch = 15
         subsequent_batch = 50
-
+        
         def process_items(start_index, is_initial=False):
             batch_limit = initial_batch if is_initial else subsequent_batch
             end_index = min(start_index + batch_limit, len(keys_items))
 
             for i in range(start_index, end_index):
                 key, value = keys_items[i]
-                if value is None:
-                    value = "#000000"
-
+                if value is None: value = "#000000"
                 self._original_colors[key] = value
+                
                 self._create_color_row(scrollable_frame, key, value, i)
 
             if end_index < len(keys_items):
