@@ -30,26 +30,22 @@ class ThemeMaker:
             self._initialized = True
     
     def _create_color_row(self, parent, key, value, row):
-        color_frame = CTkFrame(parent)
-        color_frame.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
-        color_frame.grid_columnconfigure(1, weight=1)
+        label = CTkLabel(parent, text=key, width=200, anchor="w")
+        label.grid(row=row, column=0, padx=(10, 5), pady=2, sticky="w")
 
-        label = CTkLabel(color_frame, text=key, width=200, anchor="w")
-        label.grid(row=0, column=0, padx=(10, 5), pady=5, sticky="w")
-
-        color_entry = CTkEntry(color_frame)
+        color_entry = CTkEntry(parent)
         color_entry.insert(0, value)
-        color_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        color_entry.grid(row=row, column=1, padx=5, pady=2, sticky="ew")
         self._color_entries[key] = color_entry
 
-        color_preview = CTkLabel(color_frame, text="", width=30, height=20, 
+        color_preview = CTkLabel(parent, text="", width=30, height=20, 
                                fg_color=value, corner_radius=3)
-        color_preview.grid(row=0, column=2, padx=5, pady=5)
+        color_preview.grid(row=row, column=2, padx=5, pady=2)
         self._preview_labels[key] = color_preview
 
-        picker_btn = CTkButton(color_frame, text="Pick Color", width=80, height=20,
+        picker_btn = CTkButton(parent, text="Pick", width=60, height=20,
                              command=lambda k=key, e=color_entry, p=color_preview: self.choose_color(k, e, p))
-        picker_btn.grid(row=0, column=3, padx=(5, 10), pady=5)
+        picker_btn.grid(row=row, column=3, padx=(5, 10), pady=2)
     
     def _create_context_menu(self):
         self._context_menu = ContextMenu(self._window)
@@ -249,7 +245,11 @@ class ThemeMaker:
 
         scrollable_frame = CTkScrollableFrame(parent)
         scrollable_frame.pack(fill="both", expand=True, padx=0, pady=0)
-        scrollable_frame.grid_columnconfigure(0, weight=1)
+        
+        scrollable_frame.grid_columnconfigure(0, weight=0)
+        scrollable_frame.grid_columnconfigure(1, weight=1)
+        scrollable_frame.grid_columnconfigure(2, weight=0)
+        scrollable_frame.grid_columnconfigure(3, weight=0)
 
         keys = {}
         keys_file_path = 'keys.json'
@@ -289,11 +289,7 @@ class ThemeMaker:
             keys = {}
 
         if not keys:
-            error_label = CTkLabel(
-                scrollable_frame, 
-                text="Failed to load keys.json. The Basic tab will be empty.", 
-                text_color="red"
-            )
+            error_label = CTkLabel(scrollable_frame, text="Failed to load keys.json.", text_color="red")
             error_label.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
             return
 
@@ -301,10 +297,13 @@ class ThemeMaker:
         self._color_entries = {}
 
         keys_items = list(keys.items())
-        batch_size = 20
+        
+        initial_batch = 15
+        subsequent_batch = 50
 
-        def process_batch(start_index):
-            end_index = min(start_index + batch_size, len(keys_items))
+        def process_items(start_index, is_initial=False):
+            batch_limit = initial_batch if is_initial else subsequent_batch
+            end_index = min(start_index + batch_limit, len(keys_items))
 
             for i in range(start_index, end_index):
                 key, value = keys_items[i]
@@ -315,11 +314,11 @@ class ThemeMaker:
                 self._create_color_row(scrollable_frame, key, value, i)
 
             if end_index < len(keys_items):
-                self._window.after(10, process_batch, end_index)
+                self._window.after(10, lambda: process_items(end_index, False))
             else:
                 self.update_reg_code_from_basic()
 
-        process_batch(0)
+        process_items(0, is_initial=True)
 
     def create_advanced_tab(self, parent):
         from components.reg_highlight import RegTextWidget
