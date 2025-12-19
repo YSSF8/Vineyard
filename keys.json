@@ -28,5 +28,8 @@
     "TitleText": null,
     "Window": null,
     "WindowFrame": null,
-    "WindowText": null
+    "WindowText": null,
+    "FlatMenus": "Color",
+    "ButtonAlternateFace": "Color",
+    "HotTrackingColor": "Color"
 }
