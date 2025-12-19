@@ -38,8 +38,13 @@ class ThemeMaker:
         color_entry.grid(row=row, column=1, padx=5, pady=2, sticky="ew")
         self._color_entries[key] = color_entry
 
+        preview_color = value
+        
+        if not (isinstance(preview_color, str) and preview_color.startswith("#") and len(preview_color) in (4, 7)):
+            preview_color = self.rgb_to_hex(str(preview_color))
+
         color_preview = CTkLabel(parent, text="", width=30, height=20, 
-                               fg_color=value, corner_radius=3)
+                               fg_color=preview_color, corner_radius=3)
         color_preview.grid(row=row, column=2, padx=5, pady=2)
         self._preview_labels[key] = color_preview
 
