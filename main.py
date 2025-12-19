@@ -4,12 +4,22 @@ from components.header_utilities import *
 from components.theme_list import ThemeList
 from components.console import Console
 from theme_maker import ThemeMaker
+import re
 
 set_appearance_mode("dark")
 set_default_color_theme("blue")
 
+VERSION_PATTERN = re.compile(r"V(\d+\.\d+(?:\.\d+)?)")
+
+with open("changes.md", "r", encoding="utf-8") as f:
+    line = f.readline()
+    match = VERSION_PATTERN.search(line)
+    
+    if match:
+        app_version = match.group(0)
+
 root = CTk()
-root.title("Vineyard V1.3")
+root.title(f"Vineyard {app_version}")
 root.geometry("700x600")
 
 try:
