@@ -84,7 +84,7 @@ class ContextMenu:
             widget.bind("<Enter>", on_enter)
             widget.bind("<Leave>", on_leave)
             if enabled:
-                widget.bind("<Button-1>", lambda e: self._execute(item_data['command']))
+                widget.bind("<ButtonRelease-1>", lambda e: self._execute(item_data['command']))
         
         self.items.append(item_data)
     
@@ -120,9 +120,9 @@ class ContextMenu:
             self._update_item_appearance(item)
             
             for widget in item['widgets']:
-                widget.unbind("<Button-1>")
+                widget.unbind("<ButtonRelease-1>")
                 if enabled:
-                    widget.bind("<Button-1>", lambda e, cmd=item['command']: self._execute(cmd))
+                    widget.bind("<ButtonRelease-1>", lambda e, cmd=item['command']: self._execute(cmd))
     
     def _update_item_appearance(self, item):
         enabled = item['enabled']

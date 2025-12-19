@@ -55,12 +55,17 @@ class ThemeMaker:
         self._context_menu.add_command("Paste", self._paste_text, "Ctrl+V", "📌")
         self._context_menu.add_command("Delete", self._delete_text, "Del", "🗑️")
         self._context_menu.add_separator()
+        self._context_menu.add_command("Select All", self._select_all_text, "Ctrl+A", "📑")
+        self._context_menu.add_separator()
         self._context_menu.add_command("Format Code", self._format_code, "Ctrl+Shift+F", "✨")
         self._context_menu.add_command("Reset", self._reset_advanced_tab, "Ctrl+Shift+R", "↩️")
 
         self._reg_text_widget.text_widget.bind("<Button-3>", self._show_context_menu)
         self._reg_text_widget.text_widget.bind("<Button-2>", self._show_context_menu)
 
+        self._reg_text_widget.text_widget.bind('<Control-a>', lambda e: self._select_all_text(e))
+        self._reg_text_widget.text_widget.bind('<Control-A>', lambda e: self._select_all_text(e))
+        
         self._reg_text_widget.text_widget.bind('<Control-Shift-f>', lambda e: self._format_code())
         self._reg_text_widget.text_widget.bind('<Control-Shift-F>', lambda e: self._format_code())
         self._reg_text_widget.text_widget.bind('<Control-Shift-r>', lambda e: self._reset_advanced_tab())
@@ -68,15 +73,19 @@ class ThemeMaker:
     
     def _show_context_menu(self, event):
         has_selection = False
+        content_exists = False
         try:
             self._reg_text_widget.text_widget.index("sel.first")
             has_selection = True
         except tk.TclError:
             has_selection = False
+            
+        content_exists = len(self._reg_text_widget.get("1.0", tk.END).strip()) > 0
 
         self._context_menu.enable_item(0, has_selection)
         self._context_menu.enable_item(1, has_selection)
         self._context_menu.enable_item(3, has_selection)
+        self._context_menu.enable_item(4, content_exists)
 
         self._context_menu.show(event.x_root, event.y_root)
     
@@ -128,6 +137,11 @@ class ThemeMaker:
             self._reg_text_widget.delete('1.0', tk.END)
             self._reg_text_widget.insert('1.0', self._initial_reg_content)
             self._reg_text_widget.highlighter.highlight()
+    
+    def _select_all_text(self, event=None):
+        self._reg_text_widget.text_widget.tag_add("sel", "1.0", "end")
+        self._reg_text_widget.text_widget.focus_set()
+        return "break"
 
     def _parse_reg_values(self, content):
         values = {}
@@ -266,9 +280,9 @@ class ThemeMaker:
                         units = int(-1 * (event.delta / 120))
                         scrollable_frame._parent_canvas.yview_scroll(units, "units")
                 elif event.num == 4:
-                     scrollable_frame._parent_canvas.yview_scroll(-1, "units")
+                    scrollable_frame._parent_canvas.yview_scroll(-1, "units")
                 elif event.num == 5:
-                     scrollable_frame._parent_canvas.yview_scroll(1, "units")
+                    scrollable_frame._parent_canvas.yview_scroll(1, "units")
 
         self._window.bind("<MouseWheel>", _on_mouse_wheel, add="+")
         self._window.bind("<Button-4>", _on_mouse_wheel, add="+")
