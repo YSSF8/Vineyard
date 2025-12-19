@@ -23,7 +23,6 @@ class ThemeList:
 
         self.header_frame = CTkFrame(self.frame, fg_color="transparent")
         self.header_frame.pack(fill="x", pady=(0, 10), padx=5)
-        
         self.header_frame.grid_columnconfigure(0, weight=1)
         self.header_frame.grid_columnconfigure(1, weight=0)
         self.header_frame.grid_columnconfigure(2, weight=1)
@@ -45,39 +44,20 @@ class ThemeList:
 
     def _detect_wine_version(self):
         try:
-            result = subprocess.run(['wine', '--version'], capture_output=True, text=True)
-            output = result.stdout.strip()
-            
-            match = re.search(r"wine-(\d+)", output)
-            if match:
-                version = int(match.group(1))
-                self.console.info(f"Detected Wine System: {output} (Major: {version})")
-                return version
-            
-            self.console.warning(f"Could not parse Wine version from '{output}'. Defaulting to Legacy.")
-            return 8
-        except FileNotFoundError:
-            self.console.error("Wine not found. Defaulting to Legacy mode.")
-            return 8
-        except Exception as e:
-            self.console.error(f"Error checking version: {e}")
-            return 8
+            res = subprocess.run(['wine', '--version'], capture_output=True, text=True)
+            match = re.search(r"wine-(\d+)", res.stdout.strip())
+            return int(match.group(1)) if match else 8
+        except: return 8
 
     def _update_allowed_keys(self):
-        target_keys = MODERN_KEYS if self.wine_major_version >= 9 else LEGACY_KEYS
+        target = MODERN_KEYS if self.wine_major_version >= 9 else LEGACY_KEYS
         try:
-            current = {}
+            curr = {}
             if os.path.exists('keys.json'):
-                with open('keys.json', 'r') as f: current = json.load(f)
-            
-            updated = False
-            for key in target_keys:
-                if key not in current:
-                    current[key] = "Color"
-                    updated = True
-            
-            if updated or not os.path.exists('keys.json'):
-                with open('keys.json', 'w') as f: json.dump(current, f, indent=4)
+                with open('keys.json', 'r') as f: curr = json.load(f)
+            if any(k not in curr for k in target):
+                curr.update({k: "Color" for k in target if k not in curr})
+                with open('keys.json', 'w') as f: json.dump(curr, f, indent=4)
         except: pass
 
     def _setup_global_scroll(self):
@@ -99,7 +79,13 @@ class ThemeList:
         self.theme_buttons = {}
 
         if not os.path.exists(THEMES_PATH): os.makedirs(THEMES_PATH)
-        themes = sorted([f for f in os.listdir(THEMES_PATH) if f.endswith('.reg') and f != 'revert.reg'], key=lambda x: x.lower())
+        
+        ignored_files = {'revert.reg', 'revert-modern.reg'}
+        themes = sorted(
+            [f for f in os.listdir(THEMES_PATH) 
+             if f.endswith('.reg') and f not in ignored_files], 
+            key=lambda x: x.lower()
+        )
         
         if not themes:
             CTkLabel(self.scrollable_frame, text="No themes found.", font=CTkFont(size=14)).pack(pady=20)
@@ -142,9 +128,9 @@ class ThemeList:
             subprocess.run(['wine', 'regedit', '/S', path], capture_output=True, text=True, check=True)
             self.console.success(f"Applied: {name}")
             if self.wine_major_version >= 9:
-                self.console.info("Wine 9.0+ detected: Restart running apps to see changes.")
+                self.console.info("Wine 9+ Flat Mode: Restart apps to see changes.")
         except Exception as e:
-            self.console.error(f"Error applying theme: {e}")
+            self.console.error(f"Error: {e}")
 
     def delete_theme(self, name):
         if messagebox.askyesno("Confirm", f"Delete {name}?"):
@@ -164,7 +150,6 @@ class ThemeList:
                 visible_themes.append((display_name, widgets))
             else:
                 widgets['frame'].pack_forget()
-
         visible_themes.sort(key=lambda x: x[0])
         for _, widgets in visible_themes:
             widgets['frame'].pack(fill="x", padx=5, pady=2)
@@ -176,11 +161,15 @@ class ThemeList:
             name = os.path.splitext(os.path.basename(path))[0]
             with open(path, 'r', encoding='utf-8') as f: content = f.read()
             
-            self.console.system(f"Transpiling {name} (Target: Wine {self.wine_major_version})...")
-            
+            self.console.system(f"Converting {name}...")
             reg = RonConverter.convert(content, name, self.wine_major_version)
             
             with open(os.path.join(THEMES_PATH, f"{name}.reg"), 'w', encoding='utf-8') as f: f.write(reg)
             self.console.success(f"Imported: {name}")
             self.load_themes()
         except Exception as e: self.console.error(f"Import failed: {e}")
+    
+    def refresh_themes(self):
+        self.console.system("Refreshing...")
+        self.load_themes()
+        self.console.success("Refreshed.")
