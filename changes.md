@@ -1,3 +1,23 @@
+# Vineyard V1.5
+
+## Executive Summary
+
+Vineyard V1.5 is here, and we’ve added a **Find** tool to the Advanced tab to make your life a little easier. It’s a simple addition that makes a massive difference when you’re deep in a project—less time hunting for text, and more time actually creating.
+
+---
+
+## Changelog
+
+### ✨ Features
+
+* **Find Tool in Theme Maker**:
+    * Added **"Find `Ctrl+F`"** to the Advanced tab context menu.
+    * Floating search dialog with **case-sensitive** toggle (off by default) and **regex support** (off by default).
+    * Keyboard navigation: `Enter`/`Down` for next match, `Up` for previous match, `Escape` to close.
+    * Visual highlighting of current match with wrap-around search.
+
+---
+
 # Vineyard V1.4
 
 ## Executive Summary
