@@ -1,4 +1,4 @@
-from customtkinter import CTkToplevel, CTkFrame, CTkButton, CTkLabel, CTkEntry, CTkScrollableFrame, CTkTabview
+from customtkinter import CTkToplevel, CTkFrame, CTkButton, CTkLabel, CTkEntry, CTkScrollableFrame, CTkTabview, CTkCheckBox
 import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox
 import json
@@ -62,6 +62,8 @@ class ThemeMaker:
         self._context_menu.add_separator()
         self._context_menu.add_command("Select All", self._select_all_text, "Ctrl+A", "📑")
         self._context_menu.add_separator()
+        self._context_menu.add_command("Find", self._show_find_dialog, "Ctrl+F", "🔍")
+        self._context_menu.add_separator()
         self._context_menu.add_command("Format Code", self._format_code, "Ctrl+Shift+F", "✨")
         self._context_menu.add_command("Reset", self._reset_advanced_tab, "Ctrl+Shift+R", "↩️")
 
@@ -70,6 +72,9 @@ class ThemeMaker:
 
         self._reg_text_widget.text_widget.bind('<Control-a>', lambda e: self._select_all_text(e))
         self._reg_text_widget.text_widget.bind('<Control-A>', lambda e: self._select_all_text(e))
+        
+        self._reg_text_widget.text_widget.bind('<Control-f>', lambda e: self._show_find_dialog())
+        self._reg_text_widget.text_widget.bind('<Control-F>', lambda e: self._show_find_dialog())
         
         self._reg_text_widget.text_widget.bind('<Control-Shift-f>', lambda e: self._format_code())
         self._reg_text_widget.text_widget.bind('<Control-Shift-F>', lambda e: self._format_code())
@@ -93,6 +98,9 @@ class ThemeMaker:
         self._context_menu.enable_item(4, content_exists)
 
         self._context_menu.show(event.x_root, event.y_root)
+        
+        if hasattr(self._context_menu, 'window'):
+            self._context_menu.window.lift()
     
     def _cut_text(self):
         self._reg_text_widget.text_widget.event_generate("<<Cut>>")
@@ -108,6 +116,158 @@ class ThemeMaker:
             self._reg_text_widget.text_widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
         except tk.TclError:
             pass
+    
+    def _show_find_dialog(self):
+        if hasattr(self, '_find_dialog') and self._find_dialog and self._find_dialog.winfo_exists():
+            self._find_dialog.lift()
+            self._find_dialog.focus_force()
+            self._find_dialog.find_entry.focus_set()
+            self._find_dialog.find_entry.select_range(0, tk.END)
+            return
+        
+        self._find_dialog = CTkToplevel(self._window)
+        self._find_dialog.title("Find")
+        self._find_dialog.geometry("420x200")
+        self._find_dialog.resizable(False, False)
+        self._find_dialog.transient(self._window)
+        self._find_dialog.attributes("-topmost", True)
+        self._find_dialog.protocol("WM_DELETE_WINDOW", self._close_find_dialog)
+        
+        self._find_var = tk.StringVar()
+        self._case_sensitive_var = tk.BooleanVar(value=False)
+        self._regex_var = tk.BooleanVar(value=False)
+        self._find_status_var = tk.StringVar(value="Enter search text and press Enter")
+        
+        frame = CTkFrame(self._find_dialog)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        entry_label = CTkLabel(frame, text="Find:", width=50)
+        entry_label.grid(row=0, column=0, padx=5, pady=(10, 5), sticky="w")
+        
+        self._find_dialog.find_entry = CTkEntry(frame, textvariable=self._find_var)
+        self._find_dialog.find_entry.grid(row=0, column=1, padx=5, pady=(10, 5), sticky="ew", columnspan=2)
+        self._find_dialog.find_entry.focus_set()
+        
+        opts_frame = CTkFrame(frame, fg_color="transparent")
+        opts_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
+        
+        case_cb = CTkCheckBox(opts_frame, text="Case sensitive", variable=self._case_sensitive_var, 
+                             onvalue=True, offvalue=False, width=120)
+        case_cb.pack(side="left", padx=(0, 20))
+        
+        regex_cb = CTkCheckBox(opts_frame, text="Regular expression", variable=self._regex_var,
+                              onvalue=True, offvalue=False)
+        regex_cb.pack(side="left")
+        
+        status_label = CTkLabel(frame, textvariable=self._find_status_var, text_color="gray")
+        status_label.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
+        
+        btn_frame = CTkFrame(frame, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, columnspan=3, pady=(10, 5), sticky="ew")
+        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        prev_btn = CTkButton(btn_frame, text="↑ Previous", width=90, 
+                            command=lambda: self._find_next(backwards=True))
+        prev_btn.grid(row=0, column=0, padx=5)
+        
+        next_btn = CTkButton(btn_frame, text="↓ Next", width=90,
+                            command=lambda: self._find_next(backwards=False))
+        next_btn.grid(row=0, column=1, padx=5)
+        
+        close_btn = CTkButton(btn_frame, text="Close", width=90, fg_color="transparent", 
+                             border_width=1, text_color=("gray10", "#DCE4EE"), 
+                             command=self._close_find_dialog)
+        close_btn.grid(row=0, column=2, padx=5)
+        
+        frame.grid_columnconfigure(1, weight=1)
+        
+        self._find_dialog.find_entry.bind('<Return>', lambda e: self._find_next(False))
+        self._find_dialog.find_entry.bind('<Down>', lambda e: self._find_next(False))
+        self._find_dialog.find_entry.bind('<Up>', lambda e: self._find_next(True))
+        self._find_dialog.find_entry.bind('<Escape>', lambda e: self._close_find_dialog())
+        self._find_dialog.bind('<Escape>', lambda e: self._close_find_dialog())
+        self._find_dialog.protocol("WM_DELETE_WINDOW", lambda: (self._close_find_dialog()))
+
+    def _find_next(self, backwards=False):
+        if not hasattr(self, '_find_dialog') or not self._find_dialog or not self._find_dialog.winfo_exists():
+            return "break"
+        
+        pattern = self._find_var.get()
+        if not pattern:
+            self._find_status_var.set("Enter search text")
+            return "break"
+        
+        text_widget = self._reg_text_widget.text_widget
+        count_var = tk.IntVar()
+        
+        try:
+            if backwards:
+                start_pos = text_widget.index(tk.SEL_FIRST)
+            else:
+                start_pos = text_widget.index(tk.SEL_LAST)
+        except tk.TclError:
+            start_pos = text_widget.index(tk.INSERT)
+        
+        regexp = self._regex_var.get()
+        nocase = not self._case_sensitive_var.get()
+        
+        try:
+            stop = "1.0" if backwards else tk.END
+            pos = text_widget.search(pattern, start_pos, backwards=backwards, regexp=regexp, 
+                                   nocase=nocase, stopindex=stop, count=count_var)
+        except tk.TclError:
+            self._find_status_var.set("Invalid regular expression")
+            return "break"
+        
+        if pos:
+            count = count_var.get()
+            end_pos = f"{pos}+{count}c"
+            
+            text_widget.tag_remove("find_current", "1.0", tk.END)
+            text_widget.tag_remove(tk.SEL, "1.0", tk.END)
+            text_widget.tag_add(tk.SEL, pos, end_pos)
+            text_widget.tag_add("find_current", pos, end_pos)
+            text_widget.tag_config("find_current", background="#FF8C00", foreground="white")
+            
+            text_widget.mark_set(tk.INSERT, end_pos if not backwards else pos)
+            text_widget.see(pos)
+            self._find_status_var.set(f"Found at {pos}")
+        else:
+            wrap_start = tk.END if backwards else "1.0"
+            wrap_stop = start_pos
+            
+            try:
+                pos = text_widget.search(pattern, wrap_start, backwards=backwards, regexp=regexp, 
+                                       nocase=nocase, stopindex=wrap_stop, count=count_var)
+            except tk.TclError:
+                pos = None
+            
+            if pos:
+                count = count_var.get()
+                end_pos = f"{pos}+{count}c"
+                
+                text_widget.tag_remove("find_current", "1.0", tk.END)
+                text_widget.tag_remove(tk.SEL, "1.0", tk.END)
+                text_widget.tag_add(tk.SEL, pos, end_pos)
+                text_widget.tag_add("find_current", pos, end_pos)
+                text_widget.tag_config("find_current", background="#FF8C00", foreground="white")
+                
+                text_widget.mark_set(tk.INSERT, end_pos if not backwards else pos)
+                text_widget.see(pos)
+                self._find_status_var.set(f"Wrapped to {pos}")
+            else:
+                self._find_status_var.set("No matches found")
+        
+        return "break"
+
+    def _close_find_dialog(self):
+        if hasattr(self, '_find_dialog') and self._find_dialog and self._find_dialog.winfo_exists():
+            self._find_dialog.destroy()
+            self._find_dialog = None
+        
+        if self._reg_text_widget:
+            self._reg_text_widget.text_widget.tag_remove("find_current", "1.0", tk.END)
+            self._reg_text_widget.text_widget.focus_set()
 
     def _format_code(self):
         if not self._reg_text_widget or not hasattr(self, '_initial_reg_content'):
