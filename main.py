@@ -19,7 +19,7 @@ with open("changes.md", "r", encoding="utf-8") as f:
         app_version = match.group(0)
 
 root = CTk()
-root.title(f"Vineyard {app_version}")
+root.title(f"Vineyard {app_version or '(unknown)'}")
 root.geometry("700x600")
 
 try:
